@@ -15,6 +15,7 @@ import type { WaterType } from "@/types";
 import { WATER_TYPE_LABELS } from "@/types";
 import { validateAndSnapLake } from "@/lib/validateAndSnapLake";
 import { PointChartsPanel } from "@/components/PointChartsPanel";
+import { MapMVTClusterLayer, type PointClickPayload } from "@/components/ui/MapMVTClusterLayer"
 
 export type MarkerColor = "red" | "blue" | "yellow" | "green";
 
@@ -514,13 +515,13 @@ export function MyMap({
   });
 
   // Clustering only for submitted points (e.g. from backend later).
-  const submittedMarkersGeoJSON = React.useMemo(
-    (): GeoJSON.FeatureCollection<GeoJSON.Point> => ({
-      type: "FeatureCollection",
-      features: submittedMarkers.map(toPointFeature),
-    }),
-    [submittedMarkers]
-  );
+  // const submittedMarkersGeoJSON = React.useMemo(
+  //   (): GeoJSON.FeatureCollection<GeoJSON.Point> => ({
+  //     type: "FeatureCollection",
+  //     features: submittedMarkers.map(toPointFeature),
+  //   }),
+  //   [submittedMarkers]
+  // );
 
   // Draft points: no clustering, shown with pulsing style in a separate layer.
   const draftMarkersGeoJSON = React.useMemo(
@@ -979,35 +980,48 @@ export function MyMap({
           <MapClickHandler onMapClick={handleMapClick} />
           {waterType && <WaterTypeLayer key={waterType} waterType={waterType} />}
           {/* Submitted points only: clustered (backend data would go here). */}
-          {submittedMarkers.length > 0 && (
-            <MapClusterLayer
-              data={submittedMarkersGeoJSON}
-              clusterRadius={60}
-              clusterMaxZoom={14}
-              clusterColorByMajority
-              clusterColorMap={MARKER_COLOR_HEX_ARRAY}
-              pointColor="#3b82f6"
-              pointColorProperty="colorHex"
-              onPointClick={(feature, coordinates) => {
-                const markerId = feature.properties?.id;
-                const marker = submittedMarkers.find((m) => m.id === markerId);
-                if (marker) {
-                  setSelectedClusterPoint({ coordinates, marker });
-                  setMarkerHistoryPanelMarker(marker);
-                }
-              }}
-              onClusterClick={(clusterId, coordinates, pointCount) => {
-                void clusterId;
-                void pointCount;
-                if (mapRef.current) {
-                  mapRef.current.flyTo({
-                    center: coordinates,
-                    zoom: Math.min(mapRef.current.getZoom() + 2, 14),
-                    duration: 1000,
-                  });
-                }
-              }}
-            />
+          {(
+             <MapMVTClusterLayer
+            tileUrl="http://localhost:8000/api/lakes/markers/{z}/{x}/{y}.mvt"
+            // Optional: colour circles by water quality index.
+            // Remove wqiColorStops to use the flat clusterColor / pointColor instead.
+            wqiColorStops={[
+              [40,  "#ef4444"],   // poor   — red
+              [65,  "#f59e0b"],   // fair   — amber
+              [85,  "#3b82f6"],   // good   — blue
+              [100, "#22c55e"],   // excellent — green
+            ]}
+            onClusterClick={(coords, pointCount) => {
+              void pointCount;
+              mapRef.current?.flyTo({
+                center: coords,
+                zoom: Math.min((mapRef.current?.getZoom() ?? 5) + 2, 18),
+                duration: 800,
+              });
+            }}
+            onPointClick={({ lngLat, properties }: PointClickPayload) => {
+              // The MVT tile exposes: id, lake_id, avg_wqi (from latest_markers).
+              // Build a minimal Marker-shaped object so the existing popup still works.
+              const syntheticMarker: Marker = {
+                id:        String(properties.id ?? ""),
+                latitude:  lngLat.lat,
+                longitude: lngLat.lng,
+                lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
+                turbidity: 0,
+                ph:        0,
+                // avg_wqi available — surface it if your popup uses it
+                essentialParameters: {
+                  wqi: properties.avg_wqi ?? 0,
+                },
+                timestamp: new Date(),
+              };
+              setSelectedClusterPoint({
+                coordinates: [lngLat.lng, lngLat.lat],
+                marker: syntheticMarker,
+              });
+              setMarkerHistoryPanelMarker(syntheticMarker);
+            }}
+          />
           )}
           {/* Draft points: no clustering, pulsing style so they stand out. */}
           {draftMarkers.length > 0 && (
