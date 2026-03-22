@@ -117,6 +117,11 @@ const COLORS: MarkerColor[] = ["red", "blue", "yellow", "green"];
 function randomInRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
+const WATER_TYPE_MARKER_TILE_URL: Record<WaterType, string> = {
+  ponds: "http://localhost:8000/api/ponds/markers/{z}/{x}/{y}.mvt",
+  river: "http://localhost:8000/api/river/markers/{z}/{x}/{y}.mvt",
+  lake:  "http://localhost:8000/api/lakes/markers/{z}/{x}/{y}.mvt",
+};
 
 const WATER_TYPE_TILE_CONFIG: Record<
   WaterType,
@@ -978,11 +983,12 @@ export function MyMap({
 >
           <MapControls showLocate={true} />
           <MapClickHandler onMapClick={handleMapClick} />
+          
           {waterType && <WaterTypeLayer key={waterType} waterType={waterType} />}
           {/* Submitted points only: clustered (backend data would go here). */}
-          {(
+          {waterType === "lake" && (
              <MapMVTClusterLayer
-            tileUrl="http://localhost:8000/api/lakes/markers/{z}/{x}/{y}.mvt"
+            tileUrl={WATER_TYPE_MARKER_TILE_URL[waterType ?? "lake"]}
             // Optional: colour circles by water quality index.
             // Remove wqiColorStops to use the flat clusterColor / pointColor instead.
             wqiColorStops={[

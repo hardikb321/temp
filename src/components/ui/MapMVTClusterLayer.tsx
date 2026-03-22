@@ -167,21 +167,9 @@ export function MapMVTClusterLayer({
       } catch { /* ignore */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, map]);
+  }, [isLoaded, map, tileUrl]);
 
-  useEffect(() => {
-    if (!isLoaded || !map) return;
-    const source = map.getSource(sourceId) as MapLibreGL.VectorTileSource | undefined;
-    if (!source) return;
-    if ((source as any).tiles?.[0] !== tileUrl) {
-      try {
-        if (map.getLayer(countLayerId))   map.removeLayer(countLayerId);
-        if (map.getLayer(pointLayerId))   map.removeLayer(pointLayerId);
-        if (map.getLayer(clusterLayerId)) map.removeLayer(clusterLayerId);
-        map.removeSource(sourceId);
-      } catch { /* ignore */ }
-    }
-  }, [tileUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
 
   useEffect(() => {
     if (!isLoaded || !map) return;
