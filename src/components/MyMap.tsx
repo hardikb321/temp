@@ -71,28 +71,27 @@ export interface Marker {
 type EssentialParamKey = string;
 
 const ESSENTIAL_PARAMETERS: { key: EssentialParamKey; label: string; unit?: string }[] = [
-  { key: "arsenic_as_mg_l", label: "Arsenic (As)", unit: "[mg/L]" },
-  { key: "cadmium_cd_mg_l", label: "Cadmium (Cd)", unit: "[mg/L]" },
-  { key: "calcium_ca_mg_l", label: "Calcium (Ca)", unit: "[mg/L]" },
-  { key: "chloride_cl_mg_l", label: "Chloride (Cl)", unit: "[mg/L]" },
-  { key: "chlorine_cl2_mg_l", label: "Chlorine (Cl2)", unit: "[mg/L]" },
-  { key: "dissolved_oxygen_do_mg_l", label: "Dissolved Oxygen (DO)", unit: "[mg/L]" },
-  { key: "fecal_coliform_mpn_100ml", label: "Fecal Coliform", unit: "[MPN/100mL]" },
-  { key: "fluoride_f_mg_l", label: "Fluoride (F)", unit: "[mg/L]" },
-  { key: "iron_fe_mg_l", label: "Iron (Fe)", unit: "[mg/L]" },
-  { key: "lead_pb_mg_l", label: "Lead (Pb)", unit: "[mg/L]" },
-  { key: "magnesium_mg_l_1", label: "Magnesium (Mg)", unit: "[mg/L]" },
-  { key: "magnesium_mg_l_2", label: "Magnesium (Mg)", unit: "[mg/L]" },
-  { key: "manganese_mn_mg_l", label: "Manganese (Mn)", unit: "[mg/L]" },
-  { key: "nickel_ni_mg_l", label: "Nickel (Ni)", unit: "[mg/L]" },
-  { key: "nitrate_no3_nitrogen_mg_l", label: "Nitrate (NO3) Nitrogen", unit: "[mg/L]" },
-  { key: "ph", label: "pH", unit: "" },
-  { key: "total_alkalinity_as_caco3_mg_l", label: "Total Alkalinity as CaCO3", unit: "[mg/L]" },
-  { key: "total_coliforms_mpn_100ml", label: "Total Coliforms", unit: "[MPN/100mL]" },
-  { key: "tds_mg_l", label: "Total Dissolved Solids (TDS)", unit: "[mg/L]" },
-  { key: "total_hardness_as_caco3_mg_l", label: "Total Hardness as CaCO3", unit: "[mg/L]" },
-  { key: "turbidity_ntu", label: "Turbidity (NTU)", unit: "[NTU]" },
-  { key: "zinc_zn_mg_l", label: "Zinc (Zn)", unit: "[mg/L]" },
+  { key: "Arsenic (As) [mg/L]",                  label: "Arsenic (As)",                 unit: "[mg/L]" },
+  { key: "Cadmium (Cd) [mg/L]",                  label: "Cadmium (Cd)",                 unit: "[mg/L]" },
+  { key: "Calcium (Ca) [mg/L]",                  label: "Calcium (Ca)",                 unit: "[mg/L]" },
+  { key: "Chloride (Cl) [mg/L]",                 label: "Chloride (Cl)",                unit: "[mg/L]" },
+  { key: "Chlorine (Cl2) [mg/L]",                label: "Chlorine (Cl2)",               unit: "[mg/L]" },
+  { key: "Dissolved Oxygen (DO) [mg/L]",         label: "Dissolved Oxygen (DO)",        unit: "[mg/L]" },
+  { key: "Fecal Coliform [MPN/100mL]",           label: "Fecal Coliform",               unit: "[MPN/100mL]" },
+  { key: "Fluoride (F) [mg/L]",                  label: "Fluoride (F)",                 unit: "[mg/L]" },
+  { key: "Iron (Fe) [mg/L]",                     label: "Iron (Fe)",                    unit: "[mg/L]" },
+  { key: "Lead (Pb) [mg/L]",                     label: "Lead (Pb)",                    unit: "[mg/L]" },
+  { key: "Magnesium (Mg) [mg/L]",                label: "Magnesium (Mg)",               unit: "[mg/L]" },
+  { key: "Manganese (Mn) [mg/L]",                label: "Manganese (Mn)",               unit: "[mg/L]" },
+  { key: "Nickel (Ni) [mg/L]",                   label: "Nickel (Ni)",                  unit: "[mg/L]" },
+  { key: "Nitrate (NO3) Nitrogen [mg/L]",        label: "Nitrate (NO3) Nitrogen",       unit: "[mg/L]" },
+  { key: "pH",                                   label: "pH",                           unit: "" },
+  { key: "Total Alkalinity as CaCO3 [mg/L]",    label: "Total Alkalinity as CaCO3",    unit: "[mg/L]" },
+  { key: "Total Coliforms [MPN/100mL]",          label: "Total Coliforms",              unit: "[MPN/100mL]" },
+  { key: "Total Dissolved Solids (TDS) [mg/L]", label: "Total Dissolved Solids (TDS)", unit: "[mg/L]" },
+  { key: "Total Hardness as CaCO3 [mg/L]",      label: "Total Hardness as CaCO3",      unit: "[mg/L]" },
+  { key: "Turbidity [NTU]",                      label: "Turbidity",                    unit: "[NTU]" },
+  { key: "Zinc (Zn) [mg/L]",                     label: "Zinc (Zn)",                    unit: "[mg/L]" },
 ];
 
 export interface Session {
@@ -667,8 +666,8 @@ export function MyMap({
       return;
     }
 
-    const turb = essentialParameters["turbidity_ntu"];
-    const phVal = essentialParameters["ph"];
+    const turb = essentialParameters["Turbidity [NTU]"];
+    const phVal = essentialParameters["pH"];
 
     // Optional additional parameters
     let tempVal: number | undefined = undefined;
@@ -809,8 +808,8 @@ export function MyMap({
       nextEssentialDraft[p.key] = v != null ? String(v) : "";
     });
     // Keep turbidity/ph in sync if they are stored separately.
-    nextEssentialDraft["turbidity_ntu"] = nextEssentialDraft["turbidity_ntu"] ?? marker.turbidity.toString();
-    nextEssentialDraft["ph"] = nextEssentialDraft["ph"] ?? marker.ph.toString();
+    nextEssentialDraft["Turbidity [NTU]"] = nextEssentialDraft["Turbidity [NTU]"] ?? marker.turbidity.toString();
+    nextEssentialDraft["pH"] = nextEssentialDraft["pH"] ?? marker.ph.toString();
     setEssentialDraft(nextEssentialDraft);
     setEssentialParameters(marker.essentialParameters ?? {});
     setEssentialError(null);
@@ -1010,9 +1009,9 @@ export function MyMap({
               // Build a minimal Marker-shaped object so the existing popup still works.
               const syntheticMarker: Marker = {
                 id:        String(properties.id ?? ""),
-                latitude:  lngLat.lat,
-                longitude: lngLat.lng,
-                lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
+latitude:  properties.lat != null ? Number(properties.lat) : lngLat.lat,
+longitude: properties.lng != null ? Number(properties.lng) : lngLat.lng,
+  lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
                 turbidity: 0,
                 ph:        0,
                 // avg_wqi available — surface it if your popup uses it
@@ -1429,22 +1428,57 @@ export function MyMap({
                 variant="default"
                 className="w-full"
                 disabled={isSubmittingDraft || draftMarkers.length === 0}
-                onClick={() => {
-                  if (draftMarkers.length === 0 || isSubmittingDraft) return;
-                  // Snapshot for accept/reject, then clear drafts and form so points leave map during processing.
-                  const snapshot = draftMarkers.map((m) => ({ ...m }));
-                  setPendingSubmitMarkers(snapshot);
-                  onDraftMarkersChange([]);
-                  resetDraftFormState();
-                  setDraftPage(0);
-                  setSubmitError(null);
-                  setIsSubmittingDraft(true);
-                  setSubmitStatus("processing");
-                  onProcessingChange?.(true);
-                  setTimeout(() => {
-                    setSubmitStatus("awaitingDecision");
-                  }, 800);
-                }}
+                onClick={async () => {
+  if (draftMarkers.length === 0 || isSubmittingDraft) return;
+
+  const snapshot = draftMarkers.map((m) => ({ ...m }));
+  setPendingSubmitMarkers(snapshot);
+  onDraftMarkersChange([]);
+  resetDraftFormState();
+  setDraftPage(0);
+  setSubmitError(null);
+  setIsSubmittingDraft(true);
+  setSubmitStatus("processing");
+  onProcessingChange?.(true);
+
+  // ── Build the payload the backend expects ──────────────────────
+  const markers = snapshot.map((m) => ({
+    lake_id:     m.lakeId != null ? Number(m.lakeId) : undefined,
+    lat:         m.latitude,
+    lng:         m.longitude,
+    parameters:  m.essentialParameters,           // already a flat { key: number } map
+    observed_at: m.timestamp.toISOString(),
+  }));
+
+  try {
+    const res = await fetch("http://localhost:8000/api/lakes/submit", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ markers }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.message ?? `Server error ${res.status}`;
+      setSubmitError(msg);
+      setSubmitStatus("idle");
+      setIsSubmittingDraft(false);
+      onProcessingChange?.(false);
+      // Restore draft markers so the user doesn't lose their work
+      onDraftMarkersChange(snapshot);
+      return;
+    }
+
+    // Backend accepted → show Accept / Reject decision UI
+    setSubmitStatus("awaitingDecision");
+  } catch (networkErr) {
+    setSubmitError("Network error — please check your connection and try again.");
+    setSubmitStatus("idle");
+    setIsSubmittingDraft(false);
+    onProcessingChange?.(false);
+    onDraftMarkersChange(snapshot);  // restore on failure
+  }
+}}
               >
                 {isSubmittingDraft
                   ? submitStatus === "processing"
@@ -1534,8 +1568,8 @@ export function MyMap({
                       }
                       setEssentialParameters(parsed);
                       // Keep turbidity/pH inputs in sync (they are used in existing popup/history code).
-                      setTurbidity(String(parsed["turbidity_ntu"]));
-                      setPh(String(parsed["ph"]));
+                      setTurbidity(String(parsed["Turbidity [NTU]"]));
+                      setPh(String(parsed["pH"]));
                       setEssentialError(null);
                       setIsEssentialModalOpen(false);
                     }}
@@ -1702,6 +1736,7 @@ export function MyMap({
                         if (!pendingSubmitMarkers) return;
                         // Accept: commit processed markers to submitted + sessions via parent.
                         onSubmitDraftMarkers(pendingSubmitMarkers);
+                        mapRef.current?.triggerRepaint();
                         setPendingSubmitMarkers(null);
                         resetDraftFormState();
                         onDraftMarkersChange([]);
