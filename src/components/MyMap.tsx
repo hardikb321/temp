@@ -949,20 +949,97 @@ export function MyMap({
     []
   );
 
-  // For now, history is the marker's current data as a single "recent" entry. Replace with backend fetch later.
-  const pointHistoryEntries = markerHistoryPanelMarker
-    ? [
-        {
-          timestamp: markerHistoryPanelMarker.timestamp,
-          turbidity: markerHistoryPanelMarker.turbidity,
-          ph: markerHistoryPanelMarker.ph,
-          temperature: markerHistoryPanelMarker.temperature,
-          bod: markerHistoryPanelMarker.bod,
-          conductivity: markerHistoryPanelMarker.conductivity,
-          aod: markerHistoryPanelMarker.aod,
-        },
-      ]
-    : [];
+  // ─── Point history: real backend fetch ───────────────────────────────────────
+  interface HistoryEntry {
+    parameters: Record<string, number | string>;
+    wqi: number;
+    created_by: string;
+    created_at: string;
+  }
+
+  const [pointHistoryEntries, setPointHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [expandedHistoryIndex, setExpandedHistoryIndex] = useState<number | null>(null);
+  const HISTORY_PAGE_LIMIT = 20;
+
+  // Reset + fetch whenever the selected marker changes
+  useEffect(() => {
+    if (!markerHistoryPanelMarker) {
+      setPointHistoryEntries([]);
+      setHistoryPage(1);
+      setHistoryHasMore(false);
+      setHistoryError(null);
+      return;
+    }
+
+    const { lakeId: lid, latitude: lat, longitude: lng } = markerHistoryPanelMarker;
+    if (!lid) {
+      setPointHistoryEntries([]);
+      setHistoryError("No lake_id associated with this point.");
+      return;
+    }
+
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    setPointHistoryEntries([]);
+    setHistoryPage(1);
+
+    fetch(
+      `/api/lakes/marker-history?lake_id=${encodeURIComponent(lid)}&lat=${lat}&lng=${lng}&page=1&limit=${HISTORY_PAGE_LIMIT}`
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((json) => {
+        if (cancelled) return;
+        const rows: HistoryEntry[] = json?.data?.results ?? [];
+        setPointHistoryEntries(rows);
+        setHistoryHasMore(rows.length === HISTORY_PAGE_LIMIT);
+        setHistoryPage(1);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setHistoryError(err instanceof Error ? err.message : "Failed to load history");
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [markerHistoryPanelMarker]);
+
+  // Load next page
+  const loadMoreHistory = useCallback(() => {
+    if (!markerHistoryPanelMarker || historyLoading || !historyHasMore) return;
+    const { lakeId: lid, latitude: lat, longitude: lng } = markerHistoryPanelMarker;
+    if (!lid) return;
+
+    const nextPage = historyPage + 1;
+    setHistoryLoading(true);
+
+    fetch(
+      `/api/lakes/marker-history?lake_id=${encodeURIComponent(lid)}&lat=${lat}&lng=${lng}&page=${nextPage}&limit=${HISTORY_PAGE_LIMIT}`
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((json) => {
+        const rows: HistoryEntry[] = json?.data?.results ?? [];
+        setPointHistoryEntries((prev) => [...prev, ...rows]);
+        setHistoryHasMore(rows.length === HISTORY_PAGE_LIMIT);
+        setHistoryPage(nextPage);
+      })
+      .catch((err: unknown) => {
+        setHistoryError(err instanceof Error ? err.message : "Failed to load more");
+      })
+      .finally(() => setHistoryLoading(false));
+  }, [markerHistoryPanelMarker, historyLoading, historyHasMore, historyPage]);
 
   const availableYears = React.useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -1005,13 +1082,16 @@ export function MyMap({
               });
             }}
             onPointClick={({ lngLat, properties }: PointClickPayload) => {
-              // The MVT tile exposes: id, lake_id, avg_wqi (from latest_markers).
-              // Build a minimal Marker-shaped object so the existing popup still works.
+              // The MVT tile now exposes: id, lake_id, avg_wqi, lat, lng (4326).
+              // lat/lng from the tile properties are the exact coordinates stored in
+              // the DB — use them so marker-history queries hit the right row.
+              const exactLat = properties.lat != null ? Number(properties.lat) : lngLat.lat;
+              const exactLng = properties.lng != null ? Number(properties.lng) : lngLat.lng;
               const syntheticMarker: Marker = {
                 id:        String(properties.id ?? ""),
-latitude:  properties.lat != null ? Number(properties.lat) : lngLat.lat,
-longitude: properties.lng != null ? Number(properties.lng) : lngLat.lng,
-  lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
+                latitude:  exactLat,
+                longitude: exactLng,
+                lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
                 turbidity: 0,
                 ph:        0,
                 // avg_wqi available — surface it if your popup uses it
@@ -1846,38 +1926,92 @@ longitude: properties.lng != null ? Number(properties.lng) : lngLat.lng,
             <div className="p-4 overflow-y-auto flex-1">
               {pointHistoryPanelTab === "history" && (
                 <>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {markerHistoryPanelMarker.latitude.toFixed(4)}, {markerHistoryPanelMarker.longitude.toFixed(4)}
+                  <p className="text-sm text-muted-foreground mb-1">
+                    {markerHistoryPanelMarker.latitude.toFixed(6)}, {markerHistoryPanelMarker.longitude.toFixed(6)}
                   </p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Recent data for this point. History will be loaded from the backend.
-                  </p>
-                  <ul className="space-y-3">
-                    {pointHistoryEntries.map((entry, index) => (
-                      <li
-                        key={index}
-                        className="p-4 rounded-lg border border-border bg-muted/30 space-y-2"
-                      >
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {entry.timestamp instanceof Date
-                            ? entry.timestamp.toLocaleString()
-                            : new Date(entry.timestamp).toLocaleString()}
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div><span className="text-muted-foreground">Turbidity:</span> {entry.turbidity} NTU</div>
-                          <div><span className="text-muted-foreground">pH:</span> {entry.ph}</div>
-                          <div><span className="text-muted-foreground">Temp:</span> {entry.temperature}°C</div>
-                          <div><span className="text-muted-foreground">BOD:</span> {entry.bod} mg/L</div>
-                          {entry.conductivity != null && (
-                            <div><span className="text-muted-foreground">Conductivity:</span> {entry.conductivity} μS/cm</div>
-                          )}
-                          {entry.aod != null && (
-                            <div><span className="text-muted-foreground">AOD:</span> {entry.aod}</div>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                  {markerHistoryPanelMarker.lakeId && (
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Lake ID: <span className="font-medium text-foreground">{markerHistoryPanelMarker.lakeId}</span>
+                    </p>
+                  )}
+
+                  {/* Error state */}
+                  {historyError && (
+                    <p className="text-xs text-destructive mb-3">{historyError}</p>
+                  )}
+
+                  {/* Loading first page */}
+                  {historyLoading && pointHistoryEntries.length === 0 && (
+                    <p className="text-xs text-muted-foreground animate-pulse">Loading history…</p>
+                  )}
+
+                  {/* Empty state */}
+                  {!historyLoading && !historyError && pointHistoryEntries.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No history records found for this point.</p>
+                  )}
+
+                  {/* History list */}
+                  {pointHistoryEntries.length > 0 && (
+                    <ul className="space-y-3">
+                      {pointHistoryEntries.map((entry, index) => (
+                        <li
+                          key={index}
+                          className="p-4 rounded-lg border border-border bg-muted/30 space-y-2"
+                        >
+                          {/* Header: date + WQI */}
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {new Date(entry.created_at).toLocaleString()}
+                            </p>
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                              WQI {entry.wqi != null ? Number(entry.wqi).toFixed(1) : "—"}
+                            </span>
+                          </div>
+                          {/* Parameters: top 4 collapsed, all expanded */}
+                          {entry.parameters && Object.keys(entry.parameters).length > 0 && (() => {
+                            const allParams = Object.entries(entry.parameters);
+                            const isExpanded = expandedHistoryIndex === index;
+                            const visible = isExpanded ? allParams : allParams.slice(0, 4);
+                            return (
+                              <>
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mt-2">
+                                  {visible.map(([key, val]) => (
+                                    <div key={key} className="truncate">
+                                      <span className="text-muted-foreground">{key}:</span>{" "}
+                                      <span className="font-medium">{val != null ? String(val) : "—"}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {allParams.length > 4 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedHistoryIndex(isExpanded ? null : index)}
+                                    className="mt-2 text-xs text-primary hover:underline"
+                                  >
+                                    {isExpanded ? "Show less ▲" : `+${allParams.length - 4} more ▼`}
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Load more */}
+                  {historyHasMore && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-4 w-full"
+                      onClick={loadMoreHistory}
+                      disabled={historyLoading}
+                    >
+                      {historyLoading ? "Loading…" : "Load more"}
+                    </Button>
+                  )}
                 </>
               )}
               {pointHistoryPanelTab === "charts" && (
