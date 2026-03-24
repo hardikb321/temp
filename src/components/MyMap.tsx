@@ -384,6 +384,12 @@ export function MyMap({
   const [samplePointIds, setSamplePointIds] = useState<Set<string>>(new Set());
   const [lakeId, setLakeId] = useState<string | null>(null);
   const [isResolvingLakeId, setIsResolvingLakeId] = useState(false);
+  type LakeSnapStatus =
+    | { type: "idle" }
+    | { type: "inside"; lakeId: string; lakeName?: string }
+    | { type: "snapped"; lakeId: string; lakeName?: string; distanceMeters: number }
+    | { type: "error"; message: string };
+  const [lakeSnapStatus, setLakeSnapStatus] = useState<LakeSnapStatus>({ type: "idle" });
   const [draftPage, setDraftPage] = useState(0);
   const DRAFT_PAGE_SIZE = 10;
   const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
@@ -418,6 +424,7 @@ export function MyMap({
     setIsEssentialModalOpen(false);
     setEssentialParameters({});
     setLakeId(null);
+    setLakeSnapStatus({ type: "idle" });
     setSelectedClusterPoint(null);
     setMarkerHistoryPanelMarker(null);
   }, []);
@@ -543,77 +550,63 @@ export function MyMap({
     const lng = parseFloat(longitude);
 
     if (isNaN(lat) || isNaN(lng)) {
-      alert("Please enter valid latitude and longitude values");
-      return;
-    }
-
-    if (!mapRef.current) {
-      alert("Map is not ready yet. Please try again in a moment.");
+      setLakeSnapStatus({ type: "error", message: "Please enter valid latitude and longitude values." });
       return;
     }
 
     setIsResolvingLakeId(true);
+    setLakeSnapStatus({ type: "idle" });
+    setLakeId(null);
+
     try {
-      // 1) Try vector tile first (fast, no backend)
-      const point = mapRef.current.project([lng, lat]);
-      console.debug("[LakeSet] Querying rendered features at coordinate", {
-        lng,
-        lat,
-        projectedPoint: point,
-        layer: WATER_TYPE_TILE_CONFIG.lake.fillLayerId,
+      const response = await fetch("/api/lakes/validate-or-snap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
       });
 
-      const features = mapRef.current.queryRenderedFeatures(point, {
-        layers: [WATER_TYPE_TILE_CONFIG.lake.fillLayerId],
-      });
-
-      console.debug(
-        "[LakeSet] Features from vector tile",
-        features.length,
-        features.map((f: any) => ({
-          id: f.id,
-          properties: f.properties,
-          layerId: f.layer?.id,
-          source: f.source,
-          sourceLayer: f.sourceLayer,
-        }))
-      );
-
-      if (features.length > 0) {
-        const props = features[0].properties as Record<string, unknown> | undefined;
-        const foundLakeId =
-          (props?.Hylak_id as string) ??
-          (props?.hylak_id as string) ??
-          (props?.lake_id as string);
-
-        if (foundLakeId) {
-          setLakeId(String(foundLakeId));
-          console.debug("[LakeSet] Using lakeId from vector tile", foundLakeId);
+      if (!response.ok) {
+        if (response.status === 404) {
+          setLakeSnapStatus({ type: "error", message: "No associated lake found (point is more than 50 m from any lake)." });
           return;
         }
-      }
-
-      // 2) Fallback to backend validation/snapping
-      console.debug("[LakeSet] Falling back to backend validate/snap", { lng, lat });
-      const result = await validateAndSnapLake(lat, lng);
-      if (!result) {
-        setLakeId(null);
-        alert("Point is not inside a lake and no lake was found within snapping distance (50m).");
+        const errBody = await response.json().catch(() => ({}));
+        setLakeSnapStatus({ type: "error", message: (errBody as any)?.message ?? `Server error ${response.status}` });
         return;
       }
 
-      setLakeId(result.lakeId);
-      setLatitude(result.latitude.toString());
-      setLongitude(result.longitude.toString());
-      setTempPin({ latitude: result.latitude, longitude: result.longitude });
-      console.debug("[LakeSet] Backend resolved lake", result);
+      const json = await response.json();
+      const data = json?.data ?? json;
+
+      if (!data.snapped) {
+        // Point is already inside a lake — keep original coordinates as-is
+        const resolvedId = String(data.lake?.hylak_id ?? data.lakeId ?? "");
+        const resolvedName: string | undefined = data.lake?.lake_name ?? data.lakeName;
+        setLakeId(resolvedId);
+        setLakeSnapStatus({ type: "inside", lakeId: resolvedId, lakeName: resolvedName });
+        console.debug("[LakeSet] Point inside lake", resolvedId);
+      } else {
+        // Point was outside but within 50 m — shift pin to snapped boundary point
+        const snappedLat: number = data.latitude;
+        const snappedLng: number = data.longitude;
+        const resolvedId = String(data.lakeId ?? "");
+        const resolvedName: string | undefined = data.lakeName;
+        const dist: number = data.distanceMeters ?? 0;
+
+        setLakeId(resolvedId);
+        setLatitude(snappedLat.toString());
+        setLongitude(snappedLng.toString());
+        setTempPin({ latitude: snappedLat, longitude: snappedLng });
+        setLakeSnapStatus({ type: "snapped", lakeId: resolvedId, lakeName: resolvedName, distanceMeters: dist });
+        console.debug("[LakeSet] Point snapped to lake boundary", resolvedId, { snappedLat, snappedLng, dist });
+      }
     } catch (error) {
       console.error("[LakeSet] Failed to resolve lakeId", error);
-      alert("Unable to resolve lake_id. Please try again.");
+      setLakeSnapStatus({ type: "error", message: "Unable to resolve lake. Please try again." });
     } finally {
       setIsResolvingLakeId(false);
     }
-  }, [waterType, latitude, longitude, mapRef]);
+  }, [waterType, latitude, longitude]);
 
   const handleAddMarker = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -757,6 +750,7 @@ export function MyMap({
     setIsEssentialModalOpen(false);
     setTempPin(null);
     setLakeId(null);
+    setLakeSnapStatus({ type: "idle" });
   };
 
   const handleRemoveMarker = (id: string) => {
@@ -800,6 +794,7 @@ export function MyMap({
     setTemperature(marker.temperature != null ? marker.temperature.toString() : "");
     setBod(marker.bod != null ? marker.bod.toString() : "");
     setLakeId(marker.lakeId ?? null);
+    setLakeSnapStatus({ type: "idle" });
 
     // Populate essential params draft for the modal.
     const nextEssentialDraft: Record<string, string> = {};
@@ -855,6 +850,7 @@ export function MyMap({
     setAod("");
     setSelectedAdditionalParams([]);
     setLakeId(null);
+    setLakeSnapStatus({ type: "idle" });
     setSelectedClusterPoint(null);
     setEssentialDraft({});
     setEssentialError(null);
@@ -888,8 +884,9 @@ export function MyMap({
       setLatitude(lat.toString());
       setLongitude(lng.toString());
       setSelectedClusterPoint(null);
-      // lake_id is resolved only when the user presses Set
+      // lake_id and status are reset when a new pin is placed
       setLakeId(null);
+      setLakeSnapStatus({ type: "idle" });
     },
     []
   );
@@ -1292,18 +1289,33 @@ export function MyMap({
             </div>
 
             {waterType === "lake" && (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSetLakeId}
-                  disabled={isResolvingLakeId || !latitude || !longitude}
-                >
-                  {isResolvingLakeId ? "Setting..." : "Set"}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  {lakeId ? `lake_id: ${lakeId}` : "Resolve lake_id for the entered coordinates"}
-                </p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSetLakeId}
+                    disabled={isResolvingLakeId || !latitude || !longitude}
+                  >
+                    {isResolvingLakeId ? "Checking..." : "Set Lake"}
+                  </Button>
+                  {lakeSnapStatus.type === "idle" && !lakeId && (
+                    <p className="text-xs text-muted-foreground">Click to validate coordinates against lake data</p>
+                  )}
+                </div>
+                {lakeSnapStatus.type === "inside" && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    ✓ Inside lake{lakeSnapStatus.lakeName ? ` "${lakeSnapStatus.lakeName}"` : ""} — lake_id: {lakeSnapStatus.lakeId}
+                  </p>
+                )}
+                {lakeSnapStatus.type === "snapped" && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    ⟳ Snapped to nearest boundary ({lakeSnapStatus.distanceMeters.toFixed(1)} m away){lakeSnapStatus.lakeName ? ` — "${lakeSnapStatus.lakeName}"` : ""} — lake_id: {lakeSnapStatus.lakeId}
+                  </p>
+                )}
+                {lakeSnapStatus.type === "error" && (
+                  <p className="text-xs text-destructive">{lakeSnapStatus.message}</p>
+                )}
               </div>
             )}
 
@@ -1367,11 +1379,30 @@ export function MyMap({
             {waterType === "lake" && (
               <div className="pt-2 border-t">
                 <p className="text-sm font-medium mb-1">Lake association</p>
-                <p className="text-xs text-muted-foreground">
-                  {lakeId
-                    ? `Linked lake_id: ${lakeId}`
-                    : 'Right-click on the map (or enter coordinates) and press "Set" to resolve the lake_id. '}
-                </p>
+                {!lakeId && lakeSnapStatus.type === "idle" && (
+                  <p className="text-xs text-muted-foreground">
+                    Right-click on the map (or enter coordinates) then press &quot;Set Lake&quot; to resolve the lake_id.
+                  </p>
+                )}
+                {lakeSnapStatus.type === "inside" && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    ✓ Point is inside the lake boundary. lake_id: <span className="font-medium">{lakeSnapStatus.lakeId}</span>
+                  </p>
+                )}
+                {lakeSnapStatus.type === "snapped" && (
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      ⟳ Pin shifted to nearest lake boundary ({lakeSnapStatus.distanceMeters.toFixed(1)} m).
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      lake_id: <span className="font-medium text-foreground">{lakeSnapStatus.lakeId}</span>
+                      {lakeSnapStatus.lakeName ? ` — ${lakeSnapStatus.lakeName}` : ""}
+                    </p>
+                  </div>
+                )}
+                {lakeSnapStatus.type === "error" && (
+                  <p className="text-xs text-destructive">{lakeSnapStatus.message}</p>
+                )}
               </div>
             )}
 
