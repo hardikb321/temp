@@ -1976,8 +1976,8 @@ export function MyMap({
                               <>
                                 <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs mt-2">
                                   {visible.map(([key, val]) => (
-                                    <div key={key} className="truncate">
-                                      <span className="text-muted-foreground">{key}:</span>{" "}
+                                    <div key={key} className="min-w-0">
+                                      <span className="text-muted-foreground break-words">{key}:</span>{" "}
                                       <span className="font-medium">{val != null ? String(val) : "—"}</span>
                                     </div>
                                   ))}
