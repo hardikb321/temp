@@ -890,6 +890,22 @@ export function MyMap({
     },
     []
   );
+  useEffect(() => {
+  const lat = parseFloat(latitude);
+  const lng = parseFloat(longitude);
+  if (isNaN(lat) || isNaN(lng)) return;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+
+  setTempPin({ latitude: lat, longitude: lng });
+
+  if (mapRef.current) {
+    mapRef.current.flyTo({
+      center: [lng, lat],
+      zoom: 14,
+      duration: 1000,
+    });
+  }
+}, [latitude, longitude]);
 
   // Memoize map style so MapLibre style is not reset on every React render.
   const mapStyles = React.useMemo(
@@ -1127,6 +1143,7 @@ export function MyMap({
               <MapMarker
                 longitude={tempPin.longitude}
                 latitude={tempPin.latitude}
+
               >
                 <MarkerContent>
                   <div

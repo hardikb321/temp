@@ -7,10 +7,9 @@ import { WATER_TYPE_LABELS } from "@/types";
 interface ToolbarProps {
   activeWaterType: WaterType;
   onWaterTypeChange: (type: WaterType) => void;
-  sessionHistory?: Session[];
-  onHistoryItemClick?: (markerId: string) => void;
-  onRejectedSessionClick?: (sessionId: string) => void;
+  
   isProcessingSubmit?: boolean;
+  onPointClick?: (lat: number, lng: number) => void;
 }
 
 // Mock user data - replace with actual user data from your auth system
@@ -24,10 +23,9 @@ const mockUser = {
 export function Toolbar({
   activeWaterType,
   onWaterTypeChange,
-  sessionHistory = [],
-  onHistoryItemClick,
-  onRejectedSessionClick,
+  
   isProcessingSubmit,
+  onPointClick,
 }: ToolbarProps) {
   return (
     <header className="w-full border-b border-border bg-card">
@@ -60,12 +58,11 @@ export function Toolbar({
             Admin
           </Link>
           <ProfileDropdown
-            user={mockUser}
-            history={sessionHistory}
-            onHistoryItemClick={onHistoryItemClick}
-            onRejectedSessionClick={onRejectedSessionClick}
-            isProcessingSubmit={isProcessingSubmit}
-          />
+  user={mockUser}
+  
+  isProcessingSubmit={isProcessingSubmit}
+  onPointClick={onPointClick}   // ← ADD THIS
+/>
         </div>
       </div>
     </header>

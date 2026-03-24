@@ -130,14 +130,14 @@ function MapPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-          <Toolbar
-        activeWaterType={activeWaterType}
-        onWaterTypeChange={setActiveWaterType}
-        sessionHistory={sessions}
-        onHistoryItemClick={handleHistoryItemClick}
-        onRejectedSessionClick={handleRetryRejectedSession}
-        isProcessingSubmit={isProcessingSubmit}
-      />
+ <Toolbar
+  activeWaterType={activeWaterType}
+  onWaterTypeChange={setActiveWaterType}
+  isProcessingSubmit={isProcessingSubmit}
+  onPointClick={(lat, lng) => {
+    mapRef.current?.flyTo({ center: [lng, lat], zoom: 15, duration: 1200 });
+  }}
+/>
       <main className="flex-1 p-6">
         <MyMap
           draftMarkers={draftMarkers}

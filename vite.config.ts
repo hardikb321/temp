@@ -15,8 +15,9 @@ export default defineConfig({
     // In dev, /api/* is proxied to your backend (change port if needed)
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        target: 'http://localhost:8000',
         changeOrigin: true,
+        secure: false,
       },
     },
   },
