@@ -1054,12 +1054,22 @@ export function MyMap({
       .finally(() => setHistoryLoading(false));
   }, [markerHistoryPanelMarker, historyLoading, historyHasMore, historyPage]);
 
-  const availableYears = React.useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const years: number[] = [];
-    for (let y = currentYear; y >= currentYear - 20; y--) years.push(y);
-    return years;
-  }, []);
+const [availableYears, setAvailableYears] = useState<number[]>([]);
+
+useEffect(() => {
+  if (!markerHistoryPanelMarker) return;
+  const { lakeId: lid, latitude: lat, longitude: lng } = markerHistoryPanelMarker;
+  if (!lid) return;
+
+  fetch(`/api/lakes/marker-years?lake_id=${encodeURIComponent(lid)}&lat=${lat}&lng=${lng}`)
+    .then((r) => r.json())
+    .then((json) => {
+      const years: number[] = json?.data ?? [];
+      setAvailableYears(years);
+      if (years.length > 0) setChartYear(years[0]);
+    })
+    .catch(() => setAvailableYears([]));
+}, [markerHistoryPanelMarker]);
 
   return (
     <div className="flex gap-4 w-full relative">
@@ -2064,10 +2074,13 @@ export function MyMap({
               )}
               {pointHistoryPanelTab === "charts" && (
                 <PointChartsPanel
-                  availableYears={availableYears}
-                  year={chartYear}
-                  onYearChange={setChartYear}
-                />
+  availableYears={availableYears}
+  year={chartYear}
+  onYearChange={setChartYear}
+  lakeId={markerHistoryPanelMarker?.lakeId ?? null}
+  lat={markerHistoryPanelMarker?.latitude ?? 0}
+  lng={markerHistoryPanelMarker?.longitude ?? 0}
+/>
               )}
             </div>
           </aside>
