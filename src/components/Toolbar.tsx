@@ -3,6 +3,7 @@ import { ProfileDropdown } from "./ProfileDropdown";
 import type { Session } from "./MyMap";
 import type { WaterType } from "@/types";
 import { WATER_TYPE_LABELS } from "@/types";
+import type { Marker} from "./MyMap";
 
 interface ToolbarProps {
   activeWaterType: WaterType;
@@ -10,6 +11,7 @@ interface ToolbarProps {
   
   isProcessingSubmit?: boolean;
   onPointClick?: (lat: number, lng: number) => void;
+  onRejectedSessionResubmit?: (markers: Marker[]) => void;
 }
 
 // Mock user data - replace with actual user data from your auth system
@@ -26,6 +28,7 @@ export function Toolbar({
   
   isProcessingSubmit,
   onPointClick,
+  onRejectedSessionResubmit,
 }: ToolbarProps) {
   return (
     <header className="w-full border-b border-border bg-card">
@@ -62,6 +65,7 @@ export function Toolbar({
   
   isProcessingSubmit={isProcessingSubmit}
   onPointClick={onPointClick}   // ← ADD THIS
+  onRejectedSessionResubmit={onRejectedSessionResubmit}
 />
         </div>
       </div>

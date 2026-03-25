@@ -63,22 +63,48 @@ function fmtTime(s: string) {
 
 /** Convert a MarkerRow (from the API) into the Marker shape that MyMap uses. */
 function rowToMarker(row: MarkerRow): Marker {
+  const p = row.parameters ?? {};
+
+  // map backend snake_case keys → frontend display keys
+  const essentialParameters: Record<string, number> = {
+    "Arsenic (As) [mg/L]":                  Number(p["arsenic_as_mg_l"]          ?? 0),
+    "Cadmium (Cd) [mg/L]":                  Number(p["cadmium_cd_mg_l"]          ?? 0),
+    "Calcium (Ca) [mg/L]":                  Number(p["calcium_ca_mg_l"]          ?? 0),
+    "Chloride (Cl) [mg/L]":                 Number(p["chloride_cl_mg_l"]         ?? 0),
+    "Chlorine (Cl2) [mg/L]":               Number(p["chlorine_cl2_mg_l"]        ?? 0),
+    "Dissolved Oxygen (DO) [mg/L]":         Number(p["dissolved_oxygen_do_mg_l"] ?? 0),
+    "Fecal Coliform [MPN/100mL]":           Number(p["fecal_coliform_mpn_100ml"] ?? 0),
+    "Fluoride (F) [mg/L]":                  Number(p["fluoride_f_mg_l"]          ?? 0),
+    "Iron (Fe) [mg/L]":                     Number(p["iron_fe_mg_l"]             ?? 0),
+    "Lead (Pb) [mg/L]":                     Number(p["lead_pb_mg_l"]             ?? 0),
+    "Magnesium (Mg) [mg/L]":               Number(p["magnesium_mg_l_1"]         ?? 0),
+    "Manganese (Mn) [mg/L]":               Number(p["manganese_mn_mg_l"]        ?? 0),
+    "Nickel (Ni) [mg/L]":                   Number(p["nickel_ni_mg_l"]           ?? 0),
+    "Nitrate (NO3) Nitrogen [mg/L]":        Number(p["nitrate_no3_nitrogen_mg_l"]?? 0),
+    "pH":                                   Number(p["ph"]                       ?? 0),
+    "Total Alkalinity as CaCO3 [mg/L]":    Number(p["total_alkalinity_as_caco3_mg_l"] ?? 0),
+    "Total Coliforms [MPN/100mL]":          Number(p["total_coliforms_mpn_100ml"]?? 0),
+    "Total Dissolved Solids (TDS) [mg/L]": Number(p["tds_mg_l"]                 ?? 0),
+    "Total Hardness as CaCO3 [mg/L]":      Number(p["total_hardness_as_caco3_mg_l"] ?? 0),
+    "Turbidity [NTU]":                      Number(p["turbidity_ntu"]            ?? 0),
+    "Zinc (Zn) [mg/L]":                     Number(p["zinc_zn_mg_l"]             ?? 0),
+  };
+
   return {
     id: `${row.lake_id}-${row.lat}-${row.lng}-${row.created_at}`,
     latitude: Number(row.lat),
     longitude: Number(row.lng),
     lakeId: row.lake_id,
-    turbidity: Number(row.parameters?.["Turbidity [NTU]"] ?? 0),
-    ph: Number(row.parameters?.["pH"] ?? 0),
-    temperature: row.parameters?.["temperature"] != null ? Number(row.parameters["temperature"]) : undefined,
-    bod: row.parameters?.["bod"] != null ? Number(row.parameters["bod"]) : undefined,
-    conductivity: row.parameters?.["conductivity"] != null ? Number(row.parameters["conductivity"]) : undefined,
-    aod: row.parameters?.["aod"] != null ? Number(row.parameters["aod"]) : undefined,
-    essentialParameters: row.parameters ?? {},
+    turbidity: essentialParameters["Turbidity [NTU]"],
+    ph: essentialParameters["pH"],
+    temperature: p["temperature"] != null ? Number(p["temperature"]) : undefined,
+    bod: p["bod"] != null ? Number(p["bod"]) : undefined,
+    conductivity: p["conductivity"] != null ? Number(p["conductivity"]) : undefined,
+    aod: p["aod"] != null ? Number(p["aod"]) : undefined,
+    essentialParameters,
     timestamp: new Date(row.created_at),
   };
 }
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type ViewMode = "sessions" | "sessionDetail" | "lakeDetail";
@@ -242,7 +268,7 @@ export function ProfileDropdown({
         let hasMore = true;
         while (hasMore) {
           const mRes = await fetch(
-            `${BASE}/api/history/submissions/${submission.id}/markers?lake_id=${encodeURIComponent(lake.lake_id)}&page=${page}&limit=100`,
+            `${BASE}/api/lakes/submissions/${submission.id}/markers?lake_id=${encodeURIComponent(lake.lake_id)}&page=${page}&limit=100`,
             
           );
           if (!mRes.ok) throw new Error(`HTTP ${mRes.status}`);
@@ -416,7 +442,7 @@ export function ProfileDropdown({
                 {submissions.length > 0 && (
                   <div className="max-h-60 overflow-y-auto space-y-2">
                     {submissions.map((sub) => {
-                      const isRejected = sub.status === "rejected";
+                      const isRejected = sub.status === "error";
                       const isError = sub.status === "error";
                       const isPending = sub.status === "pending" || sub.status === "processing";
 

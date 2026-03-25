@@ -127,6 +127,16 @@ function MapPage() {
     },
     [sessionsByType]
   );
+  const handleRejectedSessionResubmit = useCallback(
+  (markers: Marker[]) => {
+    setDraftMarkersByType((prev) => ({
+      ...prev,
+      lake: markers,
+    }));
+    setActiveWaterType("lake");
+  },
+  []
+);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -137,6 +147,7 @@ function MapPage() {
   onPointClick={(lat, lng) => {
     mapRef.current?.flyTo({ center: [lng, lat], zoom: 15, duration: 1200 });
   }}
+  onRejectedSessionResubmit={handleRejectedSessionResubmit}
 />
       <main className="flex-1 p-6">
         <MyMap
