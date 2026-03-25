@@ -1170,10 +1170,10 @@ export function MyMap({
                 <div className="text-sm">
                   <p className="font-medium mb-1">Coordinates</p>
                   <p className="text-xs">
-                    <span className="font-medium">Lat:</span> {tempPin.latitude.toFixed(6)}
+                    <span className="font-medium">Lat:</span> {tempPin.latitude.toString()}
                   </p>
                   <p className="text-xs">
-                    <span className="font-medium">Lng:</span> {tempPin.longitude.toFixed(6)}
+                    <span className="font-medium">Lng:</span> {tempPin.longitude.toString()}
                   </p>
                 </div>
               </MapPopup>
@@ -1975,7 +1975,7 @@ export function MyMap({
               {pointHistoryPanelTab === "history" && (
                 <>
                   <p className="text-sm text-muted-foreground mb-1">
-                    {markerHistoryPanelMarker.latitude.toFixed(6)}, {markerHistoryPanelMarker.longitude.toFixed(6)}
+                    {markerHistoryPanelMarker.latitude.toString()}, {markerHistoryPanelMarker.longitude.toString()}
                   </p>
                   {markerHistoryPanelMarker.lakeId && (
                     <p className="text-xs text-muted-foreground mb-3">

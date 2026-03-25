@@ -659,7 +659,7 @@ export function ProfileDropdown({
 >
                       <div className="flex items-center justify-between">
                         <span className="font-medium">
-                          {Number(entry.lat).toFixed(5)}, {Number(entry.lng).toFixed(5)}
+                          {Number(entry.lat).toString()}, {Number(entry.lng).toString()}
                         </span>
                         {entry.wqi != null && (
                           <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
