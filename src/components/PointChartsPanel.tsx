@@ -24,6 +24,18 @@ interface PointChartsPanelProps {
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// Distinct colors for each parameter (skip blue — that's WQI)
+const PARAM_COLORS = [
+  { border: "#f59e0b", bg: "rgba(245,158,11,0.12)" },   // amber
+  { border: "#10b981", bg: "rgba(16,185,129,0.12)" },   // emerald
+  { border: "#ec4899", bg: "rgba(236,72,153,0.12)" },   // pink
+  { border: "#8b5cf6", bg: "rgba(139,92,246,0.12)" },   // violet
+  { border: "#ef4444", bg: "rgba(239,68,68,0.12)" },    // red
+  { border: "#06b6d4", bg: "rgba(6,182,212,0.12)" },    // cyan
+  { border: "#f97316", bg: "rgba(249,115,22,0.12)" },   // orange
+  { border: "#84cc16", bg: "rgba(132,204,22,0.12)" },   // lime
+];
+
 export function PointChartsPanel({
   availableYears,
   year,
@@ -34,22 +46,19 @@ export function PointChartsPanel({
 }: PointChartsPanelProps) {
   const selectedYear = year ?? availableYears[0] ?? new Date().getFullYear();
 
-  // ── WQI chart ──
+  // Single chart canvas
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
 
-  // ── Parameter chart ──
-  const paramCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const paramChartRef = useRef<Chart | null>(null);
-
-  // ── State ──
+  // State
   const [wqiData, setWqiData] = useState<MonthlyWqi[]>([]);
   const [parametersData, setParametersData] = useState<Record<string, MonthlyParam[]>>({});
-  const [selectedParam, setSelectedParam] = useState<string | null>(null);
+  // Multiple selected params (ordered for stable color assignment)
+  const [activeParams, setActiveParams] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Fetch chart data when year / marker changes ──
+  // Fetch when year / marker changes
   useEffect(() => {
     if (!lakeId) return;
     setLoading(true);
@@ -65,7 +74,7 @@ export function PointChartsPanel({
       .then((json) => {
         setWqiData(json?.data?.wqi ?? []);
         setParametersData(json?.data?.parameters ?? {});
-        setSelectedParam(null); // reset param selection on year change
+        setActiveParams([]); // reset on year change
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Failed to load chart data");
@@ -75,7 +84,7 @@ export function PointChartsPanel({
       .finally(() => setLoading(false));
   }, [lakeId, lat, lng, selectedYear]);
 
-  // ── WQI chart values (sparse — null for months with no data) ──
+  // WQI values (sparse)
   const wqiChartValues = useMemo(() => {
     const arr: (number | null)[] = new Array(12).fill(null);
     wqiData.forEach(({ month, avg_wqi }) => {
@@ -84,104 +93,124 @@ export function PointChartsPanel({
     return arr;
   }, [wqiData]);
 
-  // ── Parameter chart values ──
-  const paramChartValues = useMemo(() => {
-    if (!selectedParam || !parametersData[selectedParam]) return new Array(12).fill(null);
-    const arr: (number | null)[] = new Array(12).fill(null);
-    parametersData[selectedParam].forEach(({ month, avg_value }) => {
-      arr[month - 1] = parseFloat(avg_value.toFixed(2));
-    });
-    return arr;
-  }, [selectedParam, parametersData]);
+  // Build all datasets: WQI first, then each active param
+  const datasets = useMemo(() => {
+    const wqiDataset = {
+      label: `WQI (${selectedYear})`,
+      data: wqiChartValues,
+      borderColor: "#3b82f6",
+      backgroundColor: "rgba(59,130,246,0.12)",
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      tension: 0.35,
+      fill: false,
+      spanGaps: true,
+      yAxisID: "y",
+    };
 
-  // ── Build WQI chart ──
+    const paramDatasets = activeParams.map((param, idx) => {
+      const color = PARAM_COLORS[idx % PARAM_COLORS.length];
+      const arr: (number | null)[] = new Array(12).fill(null);
+      (parametersData[param] ?? []).forEach(({ month, avg_value }) => {
+        arr[month - 1] = parseFloat(avg_value.toFixed(2));
+      });
+      return {
+        label: param,
+        data: arr,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.35,
+        fill: false,
+        spanGaps: true,
+        yAxisID: "y1", // secondary axis so scales don't clash
+      };
+    });
+
+    return [wqiDataset, ...paramDatasets];
+  }, [wqiChartValues, activeParams, parametersData, selectedYear]);
+
+  // Build / rebuild the single chart whenever datasets change
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
 
+    const hasParams = activeParams.length > 0;
+
     chartRef.current = new Chart(canvas, {
       type: "line",
-      data: {
-        labels: MONTH_LABELS,
-        datasets: [{
-          label: `WQI (${selectedYear})`,
-          data: wqiChartValues,
-          borderColor: "#3b82f6",
-          backgroundColor: "rgba(59,130,246,0.15)",
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          tension: 0.35,
-          fill: true,
-          spanGaps: true,
-        }],
-      },
+      data: { labels: MONTH_LABELS, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { mode: "nearest", intersect: false },
+        interaction: { mode: "index", intersect: false },
         plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (ctx) => `WQI: ${ctx.parsed.y}` } },
+          legend: {
+            display: true,
+            position: "top",
+            labels: {
+              color: "#a1a1aa",
+              boxWidth: 12,
+              padding: 10,
+              font: { size: 11 },
+            },
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y}`,
+            },
+          },
         },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#a1a1aa" } },
-          y: {
-            min: 0,
+          x: {
+            grid: { display: false },
             ticks: { color: "#a1a1aa" },
-            grid: { color: "rgba(161,161,170,0.15)" },
-            title: { display: true, text: "WQI", color: "#a1a1aa" },
           },
+          y: {
+            position: "left",
+            min: 0,
+            ticks: { color: "#3b82f6" },
+            grid: { color: "rgba(161,161,170,0.15)" },
+            title: { display: true, text: "WQI", color: "#3b82f6", font: { size: 11 } },
+          },
+          // Only show right axis when params are active
+          ...(hasParams
+            ? {
+                y1: {
+                  position: "right",
+                  ticks: { color: "#a1a1aa" },
+                  grid: { drawOnChartArea: false },
+                  title: {
+                    display: true,
+                    text: activeParams.length === 1 ? activeParams[0] : "Parameters",
+                    color: "#a1a1aa",
+                    font: { size: 11 },
+                  },
+                },
+              }
+            : {}),
         },
       },
     });
 
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
-  }, [wqiChartValues, selectedYear]);
+  }, [datasets, activeParams]);
 
-  // ── Build parameter chart ──
-  useEffect(() => {
-    const canvas = paramCanvasRef.current;
-    if (!canvas || !selectedParam) return;
-    if (paramChartRef.current) { paramChartRef.current.destroy(); paramChartRef.current = null; }
+  // Add a parameter (select handler)
+  const handleParamAdd = (param: string) => {
+    if (!param || activeParams.includes(param)) return;
+    setActiveParams((prev) => [...prev, param]);
+  };
 
-    paramChartRef.current = new Chart(canvas, {
-      type: "line",
-      data: {
-        labels: MONTH_LABELS,
-        datasets: [{
-          label: selectedParam,
-          data: paramChartValues,
-          borderColor: "#f59e0b",
-          backgroundColor: "rgba(245,158,11,0.15)",
-          pointRadius: 4,
-          pointHoverRadius: 6,
-          tension: 0.35,
-          fill: true,
-          spanGaps: true,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "nearest", intersect: false },
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: (ctx) => `${selectedParam}: ${ctx.parsed.y}` } },
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { color: "#a1a1aa" } },
-          y: {
-            ticks: { color: "#a1a1aa" },
-            grid: { color: "rgba(161,161,170,0.15)" },
-            title: { display: true, text: selectedParam, color: "#a1a1aa" },
-          },
-        },
-      },
-    });
+  // Remove a parameter chip
+  const handleParamRemove = (param: string) => {
+    setActiveParams((prev) => prev.filter((p) => p !== param));
+  };
 
-    return () => { paramChartRef.current?.destroy(); paramChartRef.current = null; };
-  }, [paramChartValues, selectedParam]);
+  const availableParamKeys = Object.keys(parametersData);
+  const unselectedParams = availableParamKeys.filter((k) => !activeParams.includes(k));
 
   return (
     <div className="space-y-4">
@@ -206,48 +235,78 @@ export function PointChartsPanel({
       </div>
 
       {/* Error */}
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
-      {/* WQI chart */}
+      {/* Combined chart */}
       <div>
-        <p className="text-xs text-muted-foreground mb-2">Month vs WQI (hover to see values)</p>
+        <p className="text-xs text-muted-foreground mb-2">Month vs WQI &amp; Parameters (hover to see values)</p>
         <div className="rounded-lg border border-border bg-muted/10 p-3">
           {loading ? (
             <p className="text-xs text-muted-foreground text-center py-8 animate-pulse">Loading chart…</p>
           ) : (
-            <div className="h-56 w-full">
+            <div className="h-64 w-full">
               <canvas ref={canvasRef} />
             </div>
           )}
         </div>
       </div>
 
-      {/* Parameter chart */}
-      {!loading && Object.keys(parametersData).length > 0 && (
+      {/* Parameter selector — only show after data is loaded */}
+      {!loading && availableParamKeys.length > 0 && (
         <div className="space-y-2">
           <div>
-            <p className="text-sm font-medium text-foreground">Parameter</p>
-            <p className="text-xs text-muted-foreground">Monthly average for selected parameter</p>
+            <p className="text-sm font-medium text-foreground">Parameters</p>
+            <p className="text-xs text-muted-foreground">Overlay parameters on the chart</p>
           </div>
 
-          <select
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-            value={selectedParam ?? ""}
-            onChange={(e) => setSelectedParam(e.target.value || null)}
-          >
-            <option value="">Select a parameter</option>
-            {Object.keys(parametersData).map((key) => (
-              <option key={key} value={key}>{key}</option>
-            ))}
-          </select>
+          {/* Dropdown — only show params not yet active */}
+          {unselectedParams.length > 0 && (
+            <select
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              value=""
+              onChange={(e) => handleParamAdd(e.target.value)}
+            >
+              <option value="">Add a parameter…</option>
+              {unselectedParams.map((key) => (
+                <option key={key} value={key}>{key}</option>
+              ))}
+            </select>
+          )}
 
-          {selectedParam && (
-            <div className="rounded-lg border border-border bg-muted/10 p-3">
-              <div className="h-56 w-full">
-                <canvas ref={paramCanvasRef} />
-              </div>
+          {/* Active param chips */}
+          {activeParams.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {activeParams.map((param, idx) => {
+                const color = PARAM_COLORS[idx % PARAM_COLORS.length];
+                return (
+                  <span
+                    key={param}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                    style={{
+                      backgroundColor: color.bg,
+                      border: `1.5px solid ${color.border}`,
+                      color: color.border,
+                    }}
+                  >
+                    {/* Colored dot matching the chart line */}
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: color.border }}
+                    />
+                    {param}
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={() => handleParamRemove(param)}
+                      className="ml-0.5 rounded-full hover:opacity-70 transition-opacity leading-none"
+                      aria-label={`Remove ${param}`}
+                      style={{ color: color.border }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>
