@@ -1072,7 +1072,7 @@ useEffect(() => {
 }, [markerHistoryPanelMarker]);
 
   return (
-    <div className="flex gap-4 w-full relative" style={{ height: "calc(100vh - 3.5rem)" }}>
+    <div className="flex gap-4 w-full relative" style={{ height: "calc(100vh - 3.5rem - 2rem)" }}>
   <Card className="flex-1 h-full p-0 overflow-hidden relative">
         <Map
   ref={mapRef}
@@ -1286,7 +1286,7 @@ useEffect(() => {
 </div>
       </Card>
 
-<Card className="w-96 h-fit">
+<Card className="w-96 h-full flex-shrink-0 flex flex-col overflow-hidden">
         <CardHeader>
           <CardTitle>
             {editingMarkerId ? "Edit Marker" : "Add Marker"}
@@ -1297,7 +1297,7 @@ useEffect(() => {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto">
           <form onSubmit={handleAddMarker} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

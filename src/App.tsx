@@ -139,7 +139,7 @@ function MapPage() {
 );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-background">
  <Toolbar
   activeWaterType={activeWaterType}
   onWaterTypeChange={setActiveWaterType}
@@ -149,7 +149,7 @@ function MapPage() {
   }}
   onRejectedSessionResubmit={handleRejectedSessionResubmit}
 />
-      <main className="flex-1 p-6">
+      <main className="flex-1 overflow-hidden">
         <MyMap
           draftMarkers={draftMarkers}
           submittedMarkers={submittedMarkers}
