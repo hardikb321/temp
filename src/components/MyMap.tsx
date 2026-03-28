@@ -66,6 +66,7 @@ export interface Marker {
   /** 22 essential parameters (user fills them in the modal). */
   essentialParameters: Record<string, number>;
   timestamp: Date;
+  observedAt?: Date;
 }
 
 type EssentialParamKey = string;
@@ -373,6 +374,11 @@ export function MyMap({
   const [selectedAdditionalParams, setSelectedAdditionalParams] = useState<AdditionalParamKey[]>([]);
   const [conductivity, setConductivity] = useState<string>("");
   const [aod, setAod] = useState<string>("");
+  const [observedAt, setObservedAt] = useState<string>("");
+  const [obsDate, setObsDate] = useState<string>("");
+  const [obsHour, setObsHour] = useState<string>("");
+  const [obsMinute, setObsMinute] = useState<string>("00");
+  const [obsAmPm, setObsAmPm] = useState<"AM" | "PM">("AM");
   const [selectedClusterPoint, setSelectedClusterPoint] = useState<{
     coordinates: [number, number];
     marker: Marker;
@@ -427,6 +433,11 @@ export function MyMap({
     setLakeSnapStatus({ type: "idle" });
     setSelectedClusterPoint(null);
     setMarkerHistoryPanelMarker(null);
+    setObservedAt("");
+    setObsDate("");
+    setObsHour("");
+    setObsMinute("00");
+    setObsAmPm("AM");
   }, []);
 
   useEffect(() => {
@@ -627,6 +638,10 @@ export function MyMap({
       alert("Longitude must be between -180 and 180");
       return;
     }
+    if (!obsDate || !obsHour) {
+      alert("Please select a date and time for Observed At.");
+      return;
+    }
 
     // For lakes, resolve lake_id explicitly via the Set button.
     const resolvedLakeId = lakeId;
@@ -709,6 +724,7 @@ export function MyMap({
               conductivity: condVal,
               aod: aodVal,
               essentialParameters: { ...essentialParameters },
+              observedAt: new Date(observedAt),
             }
           : marker
       );
@@ -729,11 +745,17 @@ export function MyMap({
          conductivity: condVal,
          aod: aodVal,
          timestamp: new Date(),
+         observedAt: new Date(observedAt),
         essentialParameters: { ...essentialParameters },
        };
       const updatedMarkers = [...draftMarkers, newMarker];
       onDraftMarkersChange(updatedMarkers);
      }
+    setObservedAt("");
+    setObsDate("");
+    setObsHour("");
+    setObsMinute("00");
+    setObsAmPm("AM");
     setLatitude("");
     setLongitude("");
     setTurbidity("");
@@ -780,6 +802,11 @@ export function MyMap({
       setEssentialError(null);
       setIsEssentialModalOpen(false);
       setLakeId(null);
+      setObservedAt("");
+      setObsDate("");
+      setObsHour("");
+      setObsMinute("00");
+      setObsAmPm("AM");
     }
     setSelectedClusterPoint(null);
   };
@@ -795,6 +822,22 @@ export function MyMap({
     setBod(marker.bod != null ? marker.bod.toString() : "");
     setLakeId(marker.lakeId ?? null);
     setLakeSnapStatus({ type: "idle" });
+
+    // Populate observed at picker
+    if (marker.observedAt) {
+      const d = marker.observedAt;
+      const hh24 = d.getHours();
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      const isPM = hh24 >= 12;
+      const hh12 = hh24 % 12 || 12;
+      setObsDate(d.toISOString().slice(0, 10));
+      setObsHour(String(hh12));
+      setObsMinute(mm);
+      setObsAmPm(isPM ? "PM" : "AM");
+      setObservedAt(d.toISOString().slice(0, 16));
+    } else {
+      setObsDate(""); setObsHour(""); setObsMinute("00"); setObsAmPm("AM"); setObservedAt("");
+    }
 
     // Populate essential params draft for the modal.
     const nextEssentialDraft: Record<string, string> = {};
@@ -848,6 +891,11 @@ export function MyMap({
     setMarkerColor("red");
     setConductivity("");
     setAod("");
+    setObservedAt("");
+    setObsDate("");
+    setObsHour("");
+    setObsMinute("00");
+    setObsAmPm("AM");
     setSelectedAdditionalParams([]);
     setLakeId(null);
     setLakeSnapStatus({ type: "idle" });
@@ -1330,6 +1378,86 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* Observed At — centered, full width, date + dropdowns + AM/PM */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium block text-center">Observed At</label>
+              <div className="flex flex-col items-center gap-2">
+                <Input
+                  type="date"
+                  value={obsDate}
+                  onChange={(e) => {
+                    const d = e.target.value;
+                    setObsDate(d);
+                    if (d && obsHour) {
+                      const h24 = obsAmPm === "PM"
+                        ? String((parseInt(obsHour) % 12) + 12).padStart(2, "0")
+                        : String(parseInt(obsHour) % 12 === 0 ? 0 : parseInt(obsHour) % 12).padStart(2, "0");
+                      setObservedAt(`${d}T${h24}:${obsMinute}`);
+                    }
+                  }}
+                  required
+                  className="w-full"
+                />
+                <div className="flex items-center gap-2 w-full">
+                  <select
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    value={obsHour}
+                    onChange={(e) => {
+                      const h = e.target.value;
+                      setObsHour(h);
+                      if (obsDate && h) {
+                        const h24 = obsAmPm === "PM"
+                          ? String((parseInt(h) % 12) + 12).padStart(2, "0")
+                          : String(parseInt(h) % 12 === 0 ? 0 : parseInt(h) % 12).padStart(2, "0");
+                        setObservedAt(`${obsDate}T${h24}:${obsMinute}`);
+                      }
+                    }}
+                  >
+                    <option value="">HH</option>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                      <option key={h} value={String(h)}>{String(h).padStart(2, "0")}</option>
+                    ))}
+                  </select>
+                  <span className="text-muted-foreground font-bold">:</span>
+                  <select
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    value={obsMinute}
+                    onChange={(e) => {
+                      const m = e.target.value;
+                      setObsMinute(m);
+                      if (obsDate && obsHour) {
+                        const h24 = obsAmPm === "PM"
+                          ? String((parseInt(obsHour) % 12) + 12).padStart(2, "0")
+                          : String(parseInt(obsHour) % 12 === 0 ? 0 : parseInt(obsHour) % 12).padStart(2, "0");
+                        setObservedAt(`${obsDate}T${h24}:${m}`);
+                      }
+                    }}
+                  >
+                    {["00","05","10","15","20","25","30","35","40","45","50","55"].map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  <select
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    value={obsAmPm}
+                    onChange={(e) => {
+                      const ap = e.target.value as "AM" | "PM";
+                      setObsAmPm(ap);
+                      if (obsDate && obsHour) {
+                        const h24 = ap === "PM"
+                          ? String((parseInt(obsHour) % 12) + 12).padStart(2, "0")
+                          : String(parseInt(obsHour) % 12 === 0 ? 0 : parseInt(obsHour) % 12).padStart(2, "0");
+                        setObservedAt(`${obsDate}T${h24}:${obsMinute}`);
+                      }
+                    }}
+                  >
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {waterType === "lake" && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -1600,7 +1728,7 @@ useEffect(() => {
     lat:         m.latitude,
     lng:         m.longitude,
     parameters:  m.essentialParameters,           // already a flat { key: number } map
-    observed_at: m.timestamp.toISOString(),
+    observed_at: m.observedAt ? m.observedAt.toISOString() : m.timestamp.toISOString(),
   }));
 
   try {
