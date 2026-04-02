@@ -1,19 +1,14 @@
-'use client';
-
-
-
 import React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as turf from "@turf/turf";
-import { Map, MapControls, MapMarker, MarkerContent, MapClusterLayer, MapDraftPointsLayer, MapPopup, type MapRef, useMap } from "@/components/ui/map";
+import { Map, MapControls, MapMarker, MarkerContent, MapDraftPointsLayer, MapPopup, type MapRef, useMap } from "@/components/ui/map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, X, History, BarChart2 } from "lucide-react";
 import type { WaterType } from "@/types";
 import { WATER_TYPE_LABELS } from "@/types";
-import { validateAndSnapLake } from "@/lib/validateAndSnapLake";
 import { PointChartsPanel } from "@/components/PointChartsPanel";
 import { MapMVTClusterLayer, type PointClickPayload } from "@/components/ui/MapMVTClusterLayer"
 
@@ -39,13 +34,6 @@ const COLOR_INDEX: Record<MarkerColor, number> = {
   yellow: 2,
   green: 3,
 };
-
-const MARKER_COLOR_HEX_ARRAY: [string, string, string, string] = [
-  "#ef4444",
-  "#3b82f6",
-  "#eab308",
-  "#22c55e",
-];
 
 // Sample lake IDs for test data so that pagination over lakes can be exercised.
 const SAMPLE_LAKE_IDS: string[] = Array.from({ length: 15 }, (_, i) => `TEST_LAKE_${i + 1}`);
@@ -179,18 +167,24 @@ function WaterTypeLayer({ waterType }: { waterType: WaterType }) {
     // the visible "blinking" of tiles.
     const layerConfig = WATER_TYPE_TILE_CONFIG[waterType];
 
-    // Remove existing layers
-    if (map.getLayer(layerConfig.outlineLayerId)) {
-      map.removeLayer(layerConfig.outlineLayerId);
-    }
+    try {
+      if (map.getStyle && map.getStyle()) {
+        // Remove existing layers
+        if (map.getLayer(layerConfig.outlineLayerId)) {
+          map.removeLayer(layerConfig.outlineLayerId);
+        }
 
-    if (map.getLayer(layerConfig.fillLayerId)) {
-      map.removeLayer(layerConfig.fillLayerId);
-    }
+        if (map.getLayer(layerConfig.fillLayerId)) {
+          map.removeLayer(layerConfig.fillLayerId);
+        }
 
-    // Remove source
-    if (map.getSource(layerConfig.sourceId)) {
-      map.removeSource(layerConfig.sourceId);
+        // Remove source
+        if (map.getSource(layerConfig.sourceId)) {
+          map.removeSource(layerConfig.sourceId);
+        }
+      }
+    } catch (err) {
+      console.debug("Failed to clean up existing layers", err);
     }
 
     // Add vector tile source
@@ -244,14 +238,20 @@ function WaterTypeLayer({ waterType }: { waterType: WaterType }) {
     return () => {
       map.off("click", handleClick);
 
-      if (map.getLayer(layerConfig.outlineLayerId))
-        map.removeLayer(layerConfig.outlineLayerId);
+      try {
+        if (map.getStyle && map.getStyle()) {
+          if (map.getLayer(layerConfig.outlineLayerId))
+            map.removeLayer(layerConfig.outlineLayerId);
 
-      if (map.getLayer(layerConfig.fillLayerId))
-        map.removeLayer(layerConfig.fillLayerId);
+          if (map.getLayer(layerConfig.fillLayerId))
+            map.removeLayer(layerConfig.fillLayerId);
 
-      if (map.getSource(layerConfig.sourceId))
-        map.removeSource(layerConfig.sourceId);
+          if (map.getSource(layerConfig.sourceId))
+            map.removeSource(layerConfig.sourceId);
+        }
+      } catch (err) {
+        // ignore unmount errors when map is destroyed
+      }
     };
   }, [map, isLoaded, waterType]);
 
@@ -344,6 +344,7 @@ interface MyMapProps {
   onProcessingChange?: (locked: boolean) => void;
   mapRef?: React.RefObject<MapRef | null>;
   waterType?: WaterType;
+  onFormActiveChange?: (isActive: boolean) => void;
 }
 
 export function MyMap({
@@ -355,6 +356,7 @@ export function MyMap({
   onProcessingChange,
   mapRef: externalMapRef,
   waterType,
+  onFormActiveChange,
 }: MyMapProps) {
   const internalMapRef = useRef<MapRef>(null);
   const mapRef = externalMapRef || internalMapRef;
@@ -399,11 +401,16 @@ export function MyMap({
   const [draftPage, setDraftPage] = useState(0);
   const DRAFT_PAGE_SIZE = 10;
   const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<
     "idle" | "processing" | "awaitingDecision" | "accepted" | "rejected"
   >("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pendingSubmitMarkers, setPendingSubmitMarkers] = useState<Marker[] | null>(null);
+
+  useEffect(() => {
+    onFormActiveChange?.(isFormOpen);
+  }, [isFormOpen, onFormActiveChange]);
 
   const allMarkers = React.useMemo(
     () => [...submittedMarkers, ...draftMarkers],
@@ -1334,7 +1341,29 @@ useEffect(() => {
 </div>
       </Card>
 
-<Card className="w-96 h-full flex-shrink-0 flex flex-col overflow-hidden">
+      {!isFormOpen && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsFormOpen(true)}
+          className="absolute top-6 right-6 z-30 shadow-lg px-4 py-2 border-border text-sm font-medium bg-card/95 hover:bg-muted"
+          aria-label="Open Add Marker Form"
+        >
+          Add Marker
+        </Button>
+      )}
+
+      {isFormOpen && (
+        <Card className="w-96 h-full flex-shrink-0 flex flex-col overflow-hidden relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsFormOpen(false)}
+            className="absolute top-4 right-4 z-10 w-8 h-8 p-0 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted"
+            aria-label="Close add marker form"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         <CardHeader>
           <CardTitle>
             {editingMarkerId ? "Edit Marker" : "Add Marker"}
@@ -2062,6 +2091,7 @@ useEffect(() => {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Point history slide-over panel with History / Charts tabs on left boundary */}
       {markerHistoryPanelMarker && (

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { ProfileDropdown } from "./ProfileDropdown";
-import type { Session } from "./MyMap";
 import type { WaterType } from "@/types";
 import { WATER_TYPE_LABELS } from "@/types";
 import type { Marker} from "./MyMap";
