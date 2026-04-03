@@ -1119,82 +1119,8 @@ export function MyMap({
           )}
 
           {selectedClusterPoint && (
-            <MapPopup
-              key={`${selectedClusterPoint.coordinates[0]}-${selectedClusterPoint.coordinates[1]}`}
-              longitude={selectedClusterPoint.coordinates[0]}
-              latitude={selectedClusterPoint.coordinates[1]}
-              onClose={() => setSelectedClusterPoint(null)}
-              closeOnClick={false}
-              focusAfterOpen={false}
-              closeButton
-            >
-              <div className="space-y-2 p-2">
-                <p className="text-sm font-semibold">Water Quality Data</p>
-                <div className="grid grid-cols-2 gap-1 text-xs">
-                  <div>
-                    <span className="font-medium">Turbidity:</span>
-                    <br />
-                    {selectedClusterPoint.marker.turbidity} NTU
-                  </div>
-                  <div>
-                    <span className="font-medium">pH:</span>
-                    <br />
-                    {selectedClusterPoint.marker.ph}
-                  </div>
-                  <div>
-                    <span className="font-medium">Temperature:</span>
-                    <br />
-                    {selectedClusterPoint.marker.temperature}°C
-                  </div>
-                  <div>
-                    <span className="font-medium">BOD:</span>
-                    <br />
-                    {selectedClusterPoint.marker.bod} mg/L
-                  </div>
-                  {selectedClusterPoint.marker.conductivity != null && (
-                    <div>
-                      <span className="font-medium">Conductivity:</span>
-                      <br />
-                      {selectedClusterPoint.marker.conductivity} μS/cm
-                    </div>
-                  )}
-                  {selectedClusterPoint.marker.aod != null && (
-                    <div>
-                      <span className="font-medium">AOD:</span>
-                      <br />
-                      {selectedClusterPoint.marker.aod}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2 pt-2">
-                  {!submittedIdSet.has(selectedClusterPoint.marker.id) ? (
-                    <>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          handleEditMarker(selectedClusterPoint.marker);
-                          setSelectedClusterPoint(null);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          handleRemoveMarker(selectedClusterPoint.marker.id);
-                          setSelectedClusterPoint(null);
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Submitted point (locked)</p>
-                  )}
-                </div>
-              </div>
-            </MapPopup>
+            // Tooltip removed - Point history displayed on left card instead
+            null
           )}
         </Map>
         <div className="absolute bottom-8 left-3 z-10 rounded-lg border border-border bg-card/90 backdrop-blur-sm px-3 py-2 shadow-lg text-xs space-y-1.5">

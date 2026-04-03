@@ -42,6 +42,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [wqiData, setWqiData] = useState<MonthlyWqi[]>([]);
   const [chartYear, setChartYear] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<"chart" | "history">("chart");
 
   // Fetch point history when marker changes
   useEffect(() => {
@@ -142,8 +143,17 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
   // Create/update chart
   useEffect(() => {
     const canvas = canvasRef.current;
-   if (!canvas) return;
+    if (!canvas) return;
 
+    // If switching back to chart tab, resize and redraw
+    if (activeTab === "chart" && chartRef.current) {
+      setTimeout(() => {
+        chartRef.current?.resize();
+      }, 0);
+      return;
+    }
+
+    // Initialize chart
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
@@ -192,7 +202,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [datasets, wqiChartValues]);
+  }, [datasets, wqiChartValues, activeTab]);
 
   // Handle backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -207,49 +217,49 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
   const statusInfo = getWqiStatus(latestWqi);
 
   return (
-    <div
-      className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4 animate-fade-in"
-      onClick={handleBackdropClick}
-    >
-      <Card className="w-full max-w-md shadow-2xl animate-scale-up">
+    <>
+      <div
+        className="absolute inset-0 z-30"
+        onClick={handleBackdropClick}
+      />
+      <Card className="absolute top-4 left-4 z-40 w-[300px] max-h-[calc(100%-2rem)] flex flex-col shadow-2xl animate-scale-up border-border/50 bg-card/95 backdrop-blur-sm shadow-black/20">
         {/* Header with close button */}
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle>Water Quality Data</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4 px-4 shrink-0">
+          <CardTitle className="text-base font-semibold">Water Quality Data</CardTitle>
           <Button
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-6 w-6 p-0"
+            className="h-6 w-6 p-0 hover:bg-muted"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
 
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4 overflow-y-auto flex-1 px-4 pb-4">
           {/* Latest WQI Section */}
-          <div className="rounded-lg border-2 border-border p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-2">Latest Water Quality Index</p>
-            <div className="text-4xl font-bold text-primary mb-2">
+          <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Latest Water Quality Index</p>
+            <div className="text-3xl font-bold text-primary flex flex-col items-center justify-center gap-1.5">
               {latestWqi != null ? Number(latestWqi).toFixed(1) : "—"}
-            </div>
-            <div
-              className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                statusInfo.bgColor
-              } ${statusInfo.color}`}
-            >
-              {statusInfo.label}
+              <div
+                className={`px-3 py-0.5 rounded-full text-xs font-semibold ${
+                  statusInfo.bgColor
+                } ${statusInfo.color}`}
+              >
+                {statusInfo.label}
+              </div>
             </div>
           </div>
 
           {/* Location */}
-          <div className="text-xs text-muted-foreground space-y-1">
-            <p>
-              <span className="font-medium text-foreground">Coordinates:</span> {marker.latitude.toFixed(4)},
-              {marker.longitude.toFixed(4)}
+          <div className="text-[10px] text-muted-foreground space-y-1">
+            <p className="truncate">
+              <span className="font-medium text-foreground">Coordinates:</span> {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
             </p>
             {marker.lakeId && (
-              <p>
+              <p className="truncate">
                 <span className="font-medium text-foreground">Lake ID:</span> {marker.lakeId}
               </p>
             )}
@@ -258,15 +268,15 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
           {/* Key Parameters Section */}
           {keyParameters.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-3">Key Parameters (Latest)</p>
-              <div className="grid grid-cols-2 gap-3">
+              <p className="text-[11px] font-semibold mb-2 uppercase tracking-wider text-muted-foreground">Key Parameters (Latest)</p>
+              <div className="grid grid-cols-2 gap-2">
                 {keyParameters.map((param) => (
                   <div
                     key={param.label}
-                    className="rounded-lg border border-border bg-muted/50 p-3 text-center"
+                    className="rounded-md border border-border/50 bg-muted/20 p-2 text-center"
                   >
-                    <p className="text-xs text-muted-foreground truncate">{param.label}</p>
-                    <p className="text-sm font-semibold text-foreground mt-1">
+                    <p className="text-[10px] text-muted-foreground truncate" title={param.label}>{param.label}</p>
+                    <p className="text-sm font-semibold text-foreground mt-0.5">
                       {param.value != null ? Number(param.value).toFixed(2) : "—"}
                     </p>
                   </div>
@@ -275,34 +285,97 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
             </div>
           )}
 
-          {/* Chart Section */}
-          <div>
-            <p className="text-sm font-medium mb-2">Recent Year Trend</p>
-            {loading ? (
-  <div className="h-48 rounded-lg border border-border bg-muted/10 flex items-center justify-center">
-    <p className="text-xs text-muted-foreground animate-pulse">Loading chart…</p>
-  </div>
-) : error ? (
-  <div className="h-48 rounded-lg border border-border bg-muted/10 flex items-center justify-center">
-    <p className="text-xs text-destructive">{error}</p>
-  </div>
-) : (
-  <div className="rounded-lg border border-border bg-muted/10 p-3">
-    <div className="h-48 w-full">
-      <canvas ref={canvasRef} />
-    </div>
-  </div>
-)}
+          {/* Chart / History Tabs */}
+          <div className="pt-1">
+            <div className="flex border-b border-border/50 mb-3">
+              <button
+                type="button"
+                className={`flex-1 text-[11px] font-semibold py-1.5 uppercase tracking-wider transition-colors ${
+                  activeTab === "chart"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setActiveTab("chart")}
+              >
+                Recent Trend
+              </button>
+              <button
+                type="button"
+                className={`flex-1 text-[11px] font-semibold py-1.5 uppercase tracking-wider transition-colors ${
+                  activeTab === "history"
+                    ? "text-primary border-b-2 border-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setActiveTab("history")}
+              >
+                Point History
+              </button>
+            </div>
+
+            {activeTab === "chart" ? (
+              loading ? (
+                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                  <p className="text-xs text-muted-foreground animate-pulse">Loading chart…</p>
+                </div>
+              ) : error ? (
+                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                  <p className="text-xs text-destructive">{error}</p>
+                </div>
+              ) : wqiChartValues.every((v) => v === null) ? (
+                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                  <p className="text-[10px] text-muted-foreground">No trend data available</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border/50 bg-muted/10 p-2">
+                  <div className="h-36 w-full">
+                    <canvas ref={canvasRef} />
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="space-y-2 h-44 overflow-y-auto pr-1 custom-scrollbar">
+                {historyEntries.length === 0 ? (
+                  <div className="h-full rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                    <p className="text-[10px] text-muted-foreground">No history records found.</p>
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {historyEntries.map((entry, idx) => (
+                      <li key={idx} className="rounded-md border border-border/50 bg-muted/10 p-3 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(entry.created_at).toLocaleString()}
+                          </span>
+                          <span className="font-semibold text-primary px-2 py-0.5 rounded bg-primary/10">
+                            WQI {entry.wqi != null ? Number(entry.wqi).toFixed(1) : "—"}
+                          </span>
+                        </div>
+                        {entry.parameters && Object.keys(entry.parameters).length > 0 && (
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] pt-1 border-t border-border/20">
+                            {Object.entries(entry.parameters).slice(0, 4).map(([k, v]) => (
+                              <div key={k} className="truncate">
+                                <span className="text-muted-foreground">{k.substring(0, 8)}:</span>{" "}
+                                <span className="font-medium text-foreground">{v != null ? Number(v).toFixed(2) : "—"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Last Updated */}
           {latestEntry && (
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border/20">
               Last updated: {new Date(latestEntry.created_at).toLocaleString()}
             </p>
           )}
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }
