@@ -414,8 +414,6 @@ export function MyMap({
     [submittedMarkers, draftMarkers]
   );
 
-  const submittedIdSet = React.useMemo(() => new Set(submittedMarkers.map((m) => m.id)), [submittedMarkers]);
-
   const resetDraftFormState = useCallback(() => {
     setEditingMarkerId(null);
     setTempPin(null);
@@ -1039,7 +1037,8 @@ export function MyMap({
               const exactLat = properties.lat != null ? Number(properties.lat) : lngLat.lat;
               const exactLng = properties.lng != null ? Number(properties.lng) : lngLat.lng;
               const syntheticMarker: Marker = {
-                id:        String(properties.id ?? ""),
+                // Always use a geometric-based ID for consistency across the app
+                id: `geo_${exactLat}_${exactLng}`,
                 latitude:  exactLat,
                 longitude: exactLng,
                 lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
@@ -1047,7 +1046,7 @@ export function MyMap({
                 ph:        0,
                 // avg_wqi available — surface it if your popup uses it
                 essentialParameters: {
-                  wqi: properties.avg_wqi ?? 0,
+                  wqi: typeof properties.avg_wqi === "number" ? properties.avg_wqi : Number(properties.avg_wqi || 0),
                 },
                 timestamp: new Date(),
               };

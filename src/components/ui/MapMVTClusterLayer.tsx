@@ -8,12 +8,8 @@ export type WqiColorStop = [number, string];
 
 export type PointClickPayload = {
   lngLat: { lng: number; lat: number };
-  properties: {
-    id?: string | number;
-    lake_id?: string | number;
-    avg_wqi?: number;
-    [key: string]: unknown;
-  };
+  properties: Record<string, unknown>;
+  lake_id: string | null;
 };
 
 export type MapMVTClusterLayerProps = {
@@ -189,19 +185,19 @@ export function MapMVTClusterLayer({
       }
     };
 
-    const handlePointClick = (
-      e: MapLibreGL.MapMouseEvent & { features?: MapLibreGL.MapGeoJSONFeature[] }
-    ) => {
-      if (!onPointClick) return;
+    const handlePointClick = (e: MapLibreGL.MapMouseEvent & { features?: MapLibreGL.MapGeoJSONFeature[] }) => {
+      if (!e.features || e.features.length === 0) return;
       const features = map.queryRenderedFeatures(e.point, { layers: [pointLayerId] });
       if (!features.length) return;
-      const feature = features[0];
-      const coords  = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
-      let lng = coords[0];
-      while (Math.abs(e.lngLat.lng - lng) > 180) {
-        lng += e.lngLat.lng > lng ? 360 : -360;
+
+      if (onPointClick) {
+        const payload: PointClickPayload = {
+          lngLat: e.lngLat,
+          properties: features[0].properties,
+          lake_id: (features[0].properties.lake_id as string) ?? null,
+        };
+        onPointClick(payload);
       }
-      onPointClick({ lngLat: { lng, lat: coords[1] }, properties: feature.properties ?? {} });
     };
 
     const enterPtr = () => { map.getCanvas().style.cursor = "pointer"; };

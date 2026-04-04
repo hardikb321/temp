@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Chart from "chart.js/auto";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ function getWqiStatus(wqi: number | null | undefined): { label: string; color: s
 }
 
 export function PointDataCard({ marker, onClose }: PointDataCardProps) {
+  const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
 
@@ -211,6 +213,27 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
     }
   };
 
+  // Navigate to detail page
+  const handleViewDetails = () => {
+    console.log("Card clicked! Marker:", marker);
+    if (marker && marker.id) {
+      console.log("Storing marker data with key: point_" + marker.id);
+      const markerData = JSON.stringify(marker);
+      console.log("Marker data to store:", markerData);
+      sessionStorage.setItem(`point_${marker.id}`, markerData);
+      
+      // Verify it was stored
+      const verify = sessionStorage.getItem(`point_${marker.id}`);
+      console.log("Verification - data stored:", verify ? "YES" : "NO");
+      
+      const route = `/point/${encodeURIComponent(marker.id)}`;
+      console.log("Navigating to route:", route);
+      navigate(route);
+    } else {
+      console.error("Cannot navigate - marker or marker.id is missing", {marker});
+    }
+  };
+
   if (!marker) return null;
 
   const latestWqi = latestEntry?.wqi ?? marker.essentialParameters?.wqi;
@@ -222,23 +245,34 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
         className="absolute inset-0 z-30"
         onClick={handleBackdropClick}
       />
-      <Card className="absolute top-4 left-4 z-40 w-[300px] max-h-[calc(100%-2rem)] flex flex-col shadow-2xl animate-scale-up border-border/50 bg-card/95 backdrop-blur-sm shadow-black/20">
+      <div 
+        onClick={handleViewDetails}
+        className="absolute top-4 left-4 z-40 cursor-pointer"
+      >
+        <Card className="w-[300px] max-h-[calc(100%-2rem)] flex flex-col shadow-2xl animate-scale-up border-border/50 bg-card/95 backdrop-blur-sm shadow-black/20 hover:shadow-lg transition-shadow"
+        >
         {/* Header with close button */}
         <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4 px-4 shrink-0">
           <CardTitle className="text-base font-semibold">Water Quality Data</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-6 w-6 p-0 hover:bg-muted"
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="h-6 w-6 p-0 hover:bg-muted"
+              aria-label="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="space-y-4 overflow-y-auto flex-1 px-4 pb-4">
           {/* Latest WQI Section */}
+          
           <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Latest Water Quality Index</p>
             <div className="text-3xl font-bold text-primary flex flex-col items-center justify-center gap-1.5">
@@ -287,7 +321,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
 
           {/* Chart / History Tabs */}
           <div className="pt-1">
-            <div className="flex border-b border-border/50 mb-3">
+            <div className="flex border-b border-border/50 mb-3" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
                 className={`flex-1 text-[11px] font-semibold py-1.5 uppercase tracking-wider transition-colors ${
@@ -295,7 +329,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
                     ? "text-primary border-b-2 border-primary"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                onClick={() => setActiveTab("chart")}
+                onClick={(e) => { e.stopPropagation(); setActiveTab("chart"); }}
               >
                 Recent Trend
               </button>
@@ -306,7 +340,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
                     ? "text-primary border-b-2 border-primary"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
-                onClick={() => setActiveTab("history")}
+                onClick={(e) => { e.stopPropagation(); setActiveTab("history"); }}
               >
                 Point History
               </button>
@@ -314,26 +348,26 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
 
             {activeTab === "chart" ? (
               loading ? (
-                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                   <p className="text-xs text-muted-foreground animate-pulse">Loading chart…</p>
                 </div>
               ) : error ? (
-                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                   <p className="text-xs text-destructive">{error}</p>
                 </div>
               ) : wqiChartValues.every((v) => v === null) ? (
-                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
                   <p className="text-[10px] text-muted-foreground">No trend data available</p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-border/50 bg-muted/10 p-2">
+                <div className="rounded-lg border border-border/50 bg-muted/10 p-2" onClick={(e) => e.stopPropagation()}>
                   <div className="h-36 w-full">
                     <canvas ref={canvasRef} />
                   </div>
                 </div>
               )
             ) : (
-              <div className="space-y-2 h-44 overflow-y-auto pr-1 custom-scrollbar">
+              <div className="space-y-2 h-44 overflow-y-auto pr-1 custom-scrollbar" onClick={(e) => e.stopPropagation()}>
                 {historyEntries.length === 0 ? (
                   <div className="h-full rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
                     <p className="text-[10px] text-muted-foreground">No history records found.</p>
@@ -375,7 +409,8 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
             </p>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </>
   );
 }
