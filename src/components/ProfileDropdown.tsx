@@ -224,17 +224,17 @@ export function ProfileDropdown({
   }, []);
 
   // ─── fetch markers when entering lakeDetail ───────────────────────────────
-  const fetchMarkers = useCallback(async (submissionId: string, lakeId: string, page: number, replace: boolean) => {
+    const fetchMarkers = useCallback(async (submissionId: string, lakeId: string, page: number, replace: boolean) => {
     setMarkersLoading(true);
     if (replace) { setMarkersError(null); setMarkers([]); }
     try {
       const res = await fetch(
         `${BASE}/api/lakes/submissions/${submissionId}/markers?lake_id=${encodeURIComponent(lakeId)}&page=${page}&limit=${MARKERS_LIMIT}`,
-        
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const rows: MarkerRow[] = json?.data?.markers ?? [];
+      
       setMarkers((prev) => (replace ? rows : [...prev, ...rows]));
       setMarkersHasMore(rows.length === MARKERS_LIMIT);
       setMarkersPage(page);
@@ -653,10 +653,17 @@ export function ProfileDropdown({
                   );
                   return (
                     <div
- key={i}
-  className="p-3 bg-muted/50 rounded-md text-xs space-y-1 cursor-pointer hover:bg-muted transition-colors"
-  onClick={() => onPointClick?.(Number(entry.lat), Number(entry.lng))}
->
+                      key={i}
+                      className="p-3 bg-muted/50 rounded-md text-xs space-y-1 cursor-pointer hover:bg-muted transition-colors"
+                      onClick={() => {
+                        onPointClick?.(Number(entry.lat), Number(entry.lng));
+                        window.dispatchEvent(
+                          new CustomEvent("flyToPoint", {
+                            detail: { lat: Number(entry.lat), lng: Number(entry.lng) },
+                          })
+                        );
+                      }}
+                    >
                       <div className="flex items-center justify-between">
                         <span className="font-medium">
                           {Number(entry.lat).toString()}, {Number(entry.lng).toString()}

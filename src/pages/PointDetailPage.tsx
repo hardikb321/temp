@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronDown, ChevronUp, Map, Maximize2 } from "lucide-react";
 import type { Marker } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";

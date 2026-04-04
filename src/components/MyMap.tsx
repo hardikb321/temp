@@ -345,6 +345,7 @@ interface MyMapProps {
   mapRef?: React.RefObject<MapRef | null>;
   waterType?: WaterType;
   onFormActiveChange?: (isActive: boolean) => void;
+  isFormActive?: boolean;
 }
 
 export function MyMap({
@@ -357,6 +358,7 @@ export function MyMap({
   mapRef: externalMapRef,
   waterType,
   onFormActiveChange,
+  isFormActive,
 }: MyMapProps) {
   const internalMapRef = useRef<MapRef>(null);
   const mapRef = externalMapRef || internalMapRef;
@@ -398,7 +400,7 @@ export function MyMap({
   const [draftPage, setDraftPage] = useState(0);
   const DRAFT_PAGE_SIZE = 10;
   const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(isFormActive ?? false);
   const [submitStatus, setSubmitStatus] = useState<
     "idle" | "processing" | "awaitingDecision" | "accepted" | "rejected"
   >("idle");
@@ -408,6 +410,12 @@ export function MyMap({
   useEffect(() => {
     onFormActiveChange?.(isFormOpen);
   }, [isFormOpen, onFormActiveChange]);
+
+  useEffect(() => {
+    if (isFormActive !== undefined && isFormActive !== isFormOpen) {
+      setIsFormOpen(isFormActive);
+    }
+  }, [isFormActive]);
 
   const allMarkers = React.useMemo(
     () => [...submittedMarkers, ...draftMarkers],

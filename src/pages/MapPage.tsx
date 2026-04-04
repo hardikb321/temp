@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { MyMap, type Marker, type Session } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";
@@ -28,6 +28,19 @@ export function MapPage() {
     : "lake";
 
   const mapRef = useRef<MapRef>(null);
+  useEffect(() => {
+    const handleFlyTo = (e: CustomEvent<{lat: number, lng: number}>) => {
+      if (mapRef.current) {
+        mapRef.current.flyTo({
+          center: [e.detail.lng, e.detail.lat],
+          zoom: 15,
+          duration: 1500,
+        });
+      }
+    };
+    window.addEventListener("flyToPoint", handleFlyTo as EventListener);        
+    return () => window.removeEventListener("flyToPoint", handleFlyTo as EventListener);
+  }, []);
   const [draftMarkersByType, setDraftMarkersByType] =
     useState<Record<WaterType, Marker[]>>(initialMarkersByType);
   const [submittedMarkersByType, setSubmittedMarkersByType] =
@@ -102,10 +115,32 @@ export function MapPage() {
     [activeWaterType]
   );
 
+  const handleResubmitRejectedSession = useCallback((markers: Marker[]) => {    
+    if (markers.length === 0) return;
+
+    // Load markers into draft (replacing existing drafts for this water type) and open the form UI
+    setDraftMarkersByType((prev) => ({
+      ...prev,
+      [activeWaterType]: markers.map(m => ({ ...m, id: `${Date.now()}-${Math.random()}` }))
+    }));
+    
+    // Set form active so users can resubmit
+    setIsFormActive(true);
+
+    // Zoom map to the first marker
+    if (mapRef.current && markers[0]) {
+      mapRef.current.flyTo({
+        center: [markers[0].longitude, markers[0].latitude],
+        zoom: 15,
+        duration: 1500,
+      });
+    }
+  }, [activeWaterType]);
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <Navbar />
-      
+      <Navbar onRejectedSessionResubmit={handleResubmitRejectedSession} />
+
       <div className="flex-1 overflow-hidden relative flex">
         {/* Map Container */}
         <div className="transition-all duration-300 ease-in-out overflow-hidden relative flex-1 flex">
@@ -156,6 +191,7 @@ export function MapPage() {
             mapRef={mapRef}
             waterType={activeWaterType}
             onFormActiveChange={setIsFormActive}
+            isFormActive={isFormActive}
           />
         </div>
       </div>
