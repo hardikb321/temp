@@ -49,7 +49,7 @@ export function MapPage() {
     useState<Record<WaterType, Session[]>>(initialSessionsByType);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isFormActive, setIsFormActive] = useState(true);
+  const [isFormActive, setIsFormActive] = useState(false);
 
   const draftMarkers = draftMarkersByType[activeWaterType];
   const submittedMarkers = submittedMarkersByType[activeWaterType];
