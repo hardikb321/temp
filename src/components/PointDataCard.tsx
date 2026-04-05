@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Chart from "chart.js/auto";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import type { Marker } from "./MyMap";
 
@@ -239,78 +237,86 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
   const latestWqi = latestEntry?.wqi ?? marker.essentialParameters?.wqi;
   const statusInfo = getWqiStatus(latestWqi);
 
+  // Colored accent based on WQI status
+  const accentColor =
+    latestWqi == null ? "#6b7280"
+    : latestWqi < 40  ? "#ef4444"
+    : latestWqi < 65  ? "#f59e0b"
+    : latestWqi < 85  ? "#3b82f6"
+    : "#22c55e";
+
   return (
     <>
       <div
         className="absolute inset-0 z-30"
         onClick={handleBackdropClick}
       />
-      <div 
+      <div
         onClick={handleViewDetails}
         className="absolute top-4 left-4 z-40 cursor-pointer"
       >
-        <Card className="w-[300px] max-h-[calc(100%-2rem)] flex flex-col shadow-2xl animate-scale-up border-border/50 bg-card/95 backdrop-blur-sm shadow-black/20 hover:shadow-lg transition-shadow"
+        <div
+          className="w-[300px] rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow"
+          style={{ boxShadow: `0 0 0 2px ${accentColor}22, 0 8px 32px rgba(0,0,0,0.35)` }}
         >
-        {/* Header with close button */}
-        <CardHeader className="flex flex-row items-center justify-between pb-3 pt-4 px-4 shrink-0">
-          <CardTitle className="text-base font-semibold">Water Quality Data</CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose();
-              }}
-              className="h-6 w-6 p-0 hover:bg-muted"
+          {/* Colored top accent bar */}
+          <div className="h-1 w-full shrink-0" style={{ background: accentColor }} />
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ background: accentColor }} />
+              <span className="text-xs font-semibold text-foreground tracking-wide">Water Quality Data</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              className="h-5 w-5 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
               aria-label="Close"
             >
-              <X className="h-4 w-4" />
-            </Button>
+              <X className="h-3 w-3" />
+            </button>
           </div>
-        </CardHeader>
 
-        <CardContent className="space-y-4 overflow-y-auto flex-1 px-4 pb-4">
-          {/* Latest WQI Section */}
-          
-          <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-center">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Latest Water Quality Index</p>
-            <div className="text-3xl font-bold text-primary flex flex-col items-center justify-center gap-1.5">
-              {latestWqi != null ? Number(latestWqi).toFixed(1) : "—"}
-              <div
-                className={`px-3 py-0.5 rounded-full text-xs font-semibold ${
-                  statusInfo.bgColor
-                } ${statusInfo.color}`}
-              >
-                {statusInfo.label}
-              </div>
+          {/* WQI Hero */}
+          <div className="flex items-center gap-3 px-3 py-2 bg-muted/20 mx-3 rounded-lg mb-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">WQI Index</p>
+              <p className="text-2xl font-bold leading-none" style={{ color: accentColor }}>
+                {latestWqi != null ? Number(latestWqi).toFixed(1) : "—"}
+              </p>
+            </div>
+            <div
+              className="px-2.5 py-1 rounded-lg text-[11px] font-bold shrink-0"
+              style={{ background: `${accentColor}22`, color: accentColor }}
+            >
+              {statusInfo.label}
             </div>
           </div>
 
-          {/* Location */}
-          <div className="text-[10px] text-muted-foreground space-y-1">
-            <p className="truncate">
-              <span className="font-medium text-foreground">Coordinates:</span> {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
-            </p>
+          {/* Coordinates + Lake ID */}
+          <div className="px-3 pb-2 flex items-center gap-3 text-[10px] text-muted-foreground">
+            <span className="truncate">
+              <span className="text-foreground/60">📍</span> {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
+            </span>
             {marker.lakeId && (
-              <p className="truncate">
-                <span className="font-medium text-foreground">Lake ID:</span> {marker.lakeId}
-              </p>
+              <span className="shrink-0 px-1.5 py-0.5 rounded bg-muted/40 text-[9px] font-mono">
+                ID: {marker.lakeId}
+              </span>
             )}
           </div>
 
-          {/* Key Parameters Section */}
+          {/* Key Parameters */}
           {keyParameters.length > 0 && (
-            <div>
-              <p className="text-[11px] font-semibold mb-2 uppercase tracking-wider text-muted-foreground">Key Parameters (Latest)</p>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="px-3 pb-2">
+              <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">Key Parameters</p>
+              <div className="grid grid-cols-2 gap-1.5">
                 {keyParameters.map((param) => (
                   <div
                     key={param.label}
-                    className="rounded-md border border-border/50 bg-muted/20 p-2 text-center"
+                    className="rounded-md bg-muted/20 border border-border/30 px-2 py-1.5 flex justify-between items-center gap-1"
                   >
-                    <p className="text-[10px] text-muted-foreground truncate" title={param.label}>{param.label}</p>
-                    <p className="text-sm font-semibold text-foreground mt-0.5">
+                    <p className="text-[10px] text-muted-foreground truncate">{param.label}</p>
+                    <p className="text-[11px] font-semibold text-foreground shrink-0">
                       {param.value != null ? Number(param.value).toFixed(2) : "—"}
                     </p>
                   </div>
@@ -319,76 +325,68 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
             </div>
           )}
 
-          {/* Chart / History Tabs */}
-          <div className="pt-1">
-            <div className="flex border-b border-border/50 mb-3" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                className={`flex-1 text-[11px] font-semibold py-1.5 uppercase tracking-wider transition-colors ${
-                  activeTab === "chart"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={(e) => { e.stopPropagation(); setActiveTab("chart"); }}
-              >
-                Recent Trend
-              </button>
-              <button
-                type="button"
-                className={`flex-1 text-[11px] font-semibold py-1.5 uppercase tracking-wider transition-colors ${
-                  activeTab === "history"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={(e) => { e.stopPropagation(); setActiveTab("history"); }}
-              >
-                Point History
-              </button>
+          {/* Tabs */}
+          <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex mb-2 rounded-lg bg-muted/30 p-0.5 gap-0.5">
+              {(["chart", "history"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setActiveTab(tab); }}
+                  className={`flex-1 text-[10px] font-semibold py-1 rounded-md transition-all ${
+                    activeTab === tab
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab === "chart" ? "Recent Trend" : "Point History"}
+                </button>
+              ))}
             </div>
 
             {activeTab === "chart" ? (
               loading ? (
-                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                  <p className="text-xs text-muted-foreground animate-pulse">Loading chart…</p>
+                <div className="h-36 rounded-lg bg-muted/10 flex items-center justify-center">
+                  <p className="text-[10px] text-muted-foreground animate-pulse">Loading chart…</p>
                 </div>
               ) : error ? (
-                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                  <p className="text-xs text-destructive">{error}</p>
+                <div className="h-36 rounded-lg bg-muted/10 flex items-center justify-center">
+                  <p className="text-[10px] text-destructive">{error}</p>
                 </div>
               ) : wqiChartValues.every((v) => v === null) ? (
-                <div className="h-36 rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                <div className="h-36 rounded-lg bg-muted/10 flex items-center justify-center">
                   <p className="text-[10px] text-muted-foreground">No trend data available</p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-border/50 bg-muted/10 p-2" onClick={(e) => e.stopPropagation()}>
+                <div className="rounded-lg bg-muted/10 p-1.5">
                   <div className="h-36 w-full">
                     <canvas ref={canvasRef} />
                   </div>
                 </div>
               )
             ) : (
-              <div className="space-y-2 h-44 overflow-y-auto pr-1 custom-scrollbar" onClick={(e) => e.stopPropagation()}>
+              <div className="space-y-1.5 h-36 overflow-y-auto pr-0.5 custom-scrollbar">
                 {historyEntries.length === 0 ? (
-                  <div className="h-full rounded-lg border border-border/50 bg-muted/10 flex items-center justify-center">
+                  <div className="h-full rounded-lg bg-muted/10 flex items-center justify-center">
                     <p className="text-[10px] text-muted-foreground">No history records found.</p>
                   </div>
                 ) : (
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {historyEntries.map((entry, idx) => (
-                      <li key={idx} className="rounded-md border border-border/50 bg-muted/10 p-3 text-xs space-y-1.5">
+                      <li key={idx} className="rounded-md border border-border/30 bg-muted/10 px-2.5 py-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[9px] text-muted-foreground">
                             {new Date(entry.created_at).toLocaleString()}
                           </span>
-                          <span className="font-semibold text-primary px-2 py-0.5 rounded bg-primary/10">
-                            WQI {entry.wqi != null ? Number(entry.wqi).toFixed(1) : "—"}
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${accentColor}22`, color: accentColor }}>
+                            {entry.wqi != null ? Number(entry.wqi).toFixed(1) : "—"}
                           </span>
                         </div>
                         {entry.parameters && Object.keys(entry.parameters).length > 0 && (
-                          <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] pt-1 border-t border-border/20">
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px] pt-1 border-t border-border/20">
                             {Object.entries(entry.parameters).slice(0, 4).map(([k, v]) => (
-                              <div key={k} className="truncate">
-                                <span className="text-muted-foreground">{k.substring(0, 8)}:</span>{" "}
+                              <div key={k} className="truncate flex gap-1">
+                                <span className="text-muted-foreground">{k.substring(0, 8)}:</span>
                                 <span className="font-medium text-foreground">{v != null ? Number(v).toFixed(2) : "—"}</span>
                               </div>
                             ))}
@@ -402,14 +400,15 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
             )}
           </div>
 
-          {/* Last Updated */}
+          {/* Footer */}
           {latestEntry && (
-            <p className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border/20">
-              Last updated: {new Date(latestEntry.created_at).toLocaleString()}
-            </p>
+            <div className="px-3 py-1.5 border-t border-border/20 bg-muted/10">
+              <p className="text-[9px] text-muted-foreground text-center">
+                Last updated: {new Date(latestEntry.created_at).toLocaleString()}
+              </p>
+            </div>
           )}
-        </CardContent>
-        </Card>
+        </div>
       </div>
     </>
   );

@@ -50,6 +50,8 @@ export function MapPage() {
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isFormActive, setIsFormActive] = useState(false);
+  const [showMarkers, setShowMarkers] = useState(true);
+  const [showTiles, setShowTiles] = useState(true);
 
   const draftMarkers = draftMarkersByType[activeWaterType];
   const submittedMarkers = submittedMarkersByType[activeWaterType];
@@ -146,8 +148,9 @@ export function MapPage() {
         <div className="transition-all duration-300 ease-in-out overflow-hidden relative flex-1 flex">
           {/* Water Type Dropdown Selection (Top Right) */}
           <div className={`absolute top-6 z-20 transition-all duration-300 ease-in-out ${isFormActive ? 'right-[420px]' : 'right-[140px]'}`}>
-            <div className="relative">
-              <button
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <button
                 onClick={() => setIsDropdownOpen((prev) => !prev)}
                 className="flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border shadow-lg px-4 py-2 rounded-xl text-sm font-medium text-foreground hover:bg-muted transition-colors w-32 justify-between"
                 aria-label="Select water type"
@@ -178,6 +181,38 @@ export function MapPage() {
                 </div>
               )}
             </div>
+            </div>
+          </div>
+
+          {/* Toggle Buttons for Markers and Tiles (Top Center) */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowMarkers(!showMarkers)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showMarkers
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted text-foreground hover:bg-muted/80"
+                }`}
+                title="Toggle marker visibility"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {showMarkers ? "Markers" : "Hidden"}
+              </button>
+
+              <button
+                onClick={() => setShowTiles(!showTiles)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showTiles
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted text-foreground hover:bg-muted/80"
+                }`}
+                title="Toggle tile visibility"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                {showTiles ? "Tiles" : "Hidden"}
+              </button>
+            </div>
           </div>
 
           {/* Map */}
@@ -192,6 +227,8 @@ export function MapPage() {
             waterType={activeWaterType}
             onFormActiveChange={setIsFormActive}
             isFormActive={isFormActive}
+            showMarkers={showMarkers}
+            showTiles={showTiles}
           />
         </div>
       </div>

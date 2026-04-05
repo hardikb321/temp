@@ -1,6 +1,7 @@
 import React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import * as turf from "@turf/turf";
 import { Map, MapControls, MapMarker, MarkerContent, MapDraftPointsLayer, MapPopup, type MapRef, useMap } from "@/components/ui/map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,7 +154,7 @@ const WATER_TYPE_TILE_CONFIG: Record<
 };
 
 
-function WaterTypeLayer({ waterType }: { waterType: WaterType }) {
+function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTiles: boolean }) {
   const { map, isLoaded } = useMap();
 
   useEffect(() => {
@@ -255,6 +256,25 @@ function WaterTypeLayer({ waterType }: { waterType: WaterType }) {
     };
   }, [map, isLoaded, waterType]);
 
+  // Separate effect to control visibility without re-creating layers
+  useEffect(() => {
+    if (!map || !isLoaded) return;
+
+    const layerConfig = WATER_TYPE_TILE_CONFIG[waterType];
+    const visibility = showTiles ? "visible" : "none";
+
+    try {
+      if (map.getLayer(layerConfig.fillLayerId)) {
+        map.setPaintProperty(layerConfig.fillLayerId, "fill-opacity", showTiles ? 0.5 : 0);
+      }
+      if (map.getLayer(layerConfig.outlineLayerId)) {
+        map.setPaintProperty(layerConfig.outlineLayerId, "line-opacity", showTiles ? 1 : 0);
+      }
+    } catch (err) {
+      console.debug("Failed to update layer visibility", err);
+    }
+  }, [map, isLoaded, waterType, showTiles]);
+
   return null;
 }
 
@@ -346,6 +366,8 @@ interface MyMapProps {
   waterType?: WaterType;
   onFormActiveChange?: (isActive: boolean) => void;
   isFormActive?: boolean;
+  showMarkers?: boolean;
+  showTiles?: boolean;
 }
 
 export function MyMap({
@@ -359,9 +381,48 @@ export function MyMap({
   waterType,
   onFormActiveChange,
   isFormActive,
+  showMarkers = true,
+  showTiles = true,
 }: MyMapProps) {
   const internalMapRef = useRef<MapRef>(null);
   const mapRef = externalMapRef || internalMapRef;
+
+  // If we arrived from PointDetailPage, fly to the linked point on mount.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const lat  = parseFloat(searchParams.get("lat")  ?? "");
+    const lng  = parseFloat(searchParams.get("lng")  ?? "");
+    const zoom = parseFloat(searchParams.get("zoom") ?? "15");
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    // Wait for the map ref to be ready, then fly slowly so tiles and
+    // points have time to render before the camera arrives.
+    let attempts = 0;
+    const tryFly = () => {
+      if (mapRef.current) {
+        // Small initial delay lets the map fully paint its starting view
+        // before we begin moving, avoiding a blank-tile flash.
+        setTimeout(() => {
+          mapRef.current?.flyTo({
+            center: [lng, lat],
+            zoom,
+            duration: 3500,   // slow enough for tiles to load ahead of camera
+            curve: 1.2,       // gentler zoom-out arc mid-flight
+            speed: 0.4,       // fraction of default speed
+            easing: (t: number) =>   // ease-in-out: slow start, slow finish
+              t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
+          });
+        }, 400);
+      } else if (attempts < 20) {
+        attempts++;
+        setTimeout(tryFly, 100);
+      }
+    };
+    tryFly();
+  // Run once on mount only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [tempPin, setTempPin] = useState<TempPin | null>(null);
   const [latitude, setLatitude] = useState<string>("");
   const [longitude, setLongitude] = useState<string>("");
@@ -1017,9 +1078,9 @@ export function MyMap({
           <MapControls showLocate={true} />
           <MapClickHandler onMapClick={handleMapClick} />
           
-          {waterType && <WaterTypeLayer key={waterType} waterType={waterType} />}
+          {waterType && <WaterTypeLayer key={waterType} waterType={waterType} showTiles={showTiles} />}
           {/* Submitted points only: clustered (backend data would go here). */}
-          {waterType === "lake" && (
+          {waterType === "lake" && showMarkers && (
              <MapMVTClusterLayer
             tileUrl={WATER_TYPE_MARKER_TILE_URL[waterType ?? "lake"]}
             // Optional: colour circles by water quality index.
@@ -1063,11 +1124,22 @@ export function MyMap({
                 marker: syntheticMarker,
               });
               setMarkerHistoryPanelMarker(syntheticMarker);
+
+              // Zoom to clicked point — no URL change needed.
+              mapRef.current?.flyTo({
+                center: [exactLng, exactLat],
+                zoom: 15,
+                duration: 3500,
+                curve: 1.2,
+                speed: 0.4,
+                easing: (t: number) =>
+                  t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
+              });
             }}
           />
           )}
           {/* Draft points: no clustering, pulsing style so they stand out. */}
-          {draftMarkers.length > 0 && (
+          {draftMarkers.length > 0 && showMarkers && (
             <MapDraftPointsLayer
               data={draftMarkersGeoJSON}
               pointColor="#f59e0b"
