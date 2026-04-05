@@ -589,81 +589,125 @@ export function PointDetailPage() {
           </div>
 
           {/* Right column */}
-          <div className="flex-shrink-0 w-full lg:w-64 flex flex-col gap-3">
-            {/* Map Card */}
+          <div className="flex-shrink-0 w-full lg:w-80 flex flex-col gap-3">
+            {/* Map Card — terrain style matching dashboard */}
             <button
               onClick={() => navigate(`/map/lake?lat=${marker.latitude}&lng=${marker.longitude}&zoom=15`)}
-              className="group w-full rounded-3xl overflow-hidden transition-all duration-300 hover:scale-[1.02]"
+              className="group w-full rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02]"
               style={{
-                background: "linear-gradient(145deg, #0c1825, #0f2035)",
-                border: "1px solid rgba(30,144,255,0.25)",
-                boxShadow: "0 0 40px rgba(30,144,255,0.1)",
+                background: "#111827",
+                border: "1.5px solid #1e90ff",
+                boxShadow: "0 0 0 4px rgba(30,144,255,0.08), 0 8px 40px rgba(0,0,0,0.7), 0 0 50px rgba(30,144,255,0.18)",
               }}
             >
-              <div className="relative h-44 overflow-hidden">
-                <svg className="w-full h-full" viewBox="0 0 260 180" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <radialGradient id="mapglow" cx="50%" cy="50%" r="50%">
-                      <stop offset="0%" stopColor="#1e90ff" stopOpacity="0.15" />
-                      <stop offset="100%" stopColor="#0d1b2a" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-                  <rect width="260" height="180" fill="#08131e" />
-                  <rect width="260" height="180" fill="url(#mapglow)" />
-                  {[30,60,90,120,150].map(y => <line key={y} x1="0" y1={y} x2="260" y2={y} stroke="#0f2035" strokeWidth="1" />)}
-                  {[50,100,150,200].map(x => <line key={x} x1={x} y1="0" x2={x} y2="180" stroke="#0f2035" strokeWidth="1" />)}
-                  <path d="M 15 70 Q 65 50 110 75 T 245 65" stroke="#1e90ff" strokeWidth="1.5" fill="none" opacity="0.5" strokeDasharray="5 3" />
-                  <path d="M 10 120 Q 60 105 110 125 T 250 115" stroke="#00bcd4" strokeWidth="1" fill="none" opacity="0.3" />
-                  {/* Glowing current point */}
-                  <circle cx="50" cy="75" r="14" fill={wqiStatus.dotColor} opacity="0.15" />
-                  <circle cx="50" cy="75" r="10" fill={wqiStatus.dotColor} opacity="0.9" />
-                  <text x="50" y="79" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">{latestEntry?.wqi?.toFixed(0) ?? "?"}</text>
-                  <circle cx="105" cy="65" r="9" fill="#eab308" opacity="0.85" /><text x="105" y="69" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">61</text>
-                  <circle cx="155" cy="80" r="9" fill="#22c55e" opacity="0.85" /><text x="155" y="84" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">82</text>
-                  <circle cx="205" cy="68" r="8" fill="#3b82f6" opacity="0.85" /><text x="205" y="72" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">91</text>
-                  <circle cx="80" cy="125" r="8" fill="#ef4444" opacity="0.75" /><text x="80" y="129" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">35</text>
-                </svg>
-                <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: "rgba(30,144,255,0.2)", border: "1px solid rgba(30,144,255,0.35)", color: "#60a5fa", backdropFilter: "blur(4px)" }}>
-                  <Map className="w-3 h-3" /> WQI Map
+              {/* Blue accent top bar */}
+              <div
+                className="flex items-center justify-between px-4 py-2.5"
+                style={{ background: "rgba(30,144,255,0.08)", borderBottom: "1px solid rgba(30,144,255,0.2)" }}
+              >
+                <div className="flex items-center gap-2">
+                  <Map className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />
+                  <span className="text-sm font-bold" style={{ color: "#60a5fa" }}>WQI Map</span>
                 </div>
-                <div className="absolute top-2.5 right-2.5 p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.08)", backdropFilter: "blur(4px)" }}>
-                  <Maximize2 className="w-3 h-3 text-slate-300" />
-                </div>
-                <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 text-xs" style={{ color: "#94a3b8" }}>
-                  <span className="w-2 h-2 rounded-full ring-2" style={{ background: wqiStatus.dotColor, boxShadow: `0 0 6px ${wqiStatus.dotColor}` }} />
-                  This point
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-xs" style={{ color: "#94a3b8" }}>
+                    <span className="w-2 h-2 rounded-full ring-1 ring-white/20" style={{ background: wqiStatus.dotColor, boxShadow: `0 0 6px ${wqiStatus.dotColor}` }} />
+                    This point
+                  </div>
+                  <div
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+                    style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#4ade80" }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+                    Live
+                  </div>
                 </div>
               </div>
-              <div className="px-4 py-3 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+
+              {/* Terrain map SVG */}
+              <div className="relative overflow-hidden" style={{ height: 220 }}>
+                <svg className="w-full h-full" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+                  {/* Terrain base */}
+                  <rect width="320" height="220" fill="#c8d8a0" />
+                  <rect x="0" y="0" width="100" height="80" fill="#b5cc8a" />
+                  <rect x="100" y="0" width="120" height="60" fill="#cddca0" />
+                  <rect x="220" y="0" width="100" height="90" fill="#bfd090" />
+                  <rect x="0" y="80" width="80" height="80" fill="#d4e4a8" />
+                  <rect x="150" y="80" width="90" height="70" fill="#c2d695" />
+                  <rect x="240" y="90" width="80" height="80" fill="#b8cc82" />
+                  <rect x="0" y="160" width="130" height="60" fill="#c5d898" />
+                  <rect x="200" y="150" width="120" height="70" fill="#cce0a2" />
+                  {/* Roads */}
+                  <line x1="0" y1="110" x2="320" y2="110" stroke="#f5e6c8" strokeWidth="3" />
+                  <line x1="160" y1="0" x2="160" y2="220" stroke="#f5e6c8" strokeWidth="2" />
+                  <line x1="80" y1="0" x2="60" y2="220" stroke="#ede0c0" strokeWidth="1.5" opacity="0.7" />
+                  <line x1="240" y1="0" x2="260" y2="220" stroke="#ede0c0" strokeWidth="1.5" opacity="0.7" />
+                  {/* Water */}
+                  <path d="M 30 90 Q 70 75 110 95 Q 140 108 160 100 Q 185 90 200 105 Q 220 118 250 108 Q 270 100 300 112" stroke="#5aabdc" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.85" />
+                  <ellipse cx="75" cy="155" rx="28" ry="16" fill="#7ec8e3" opacity="0.8" />
+                  <ellipse cx="255" cy="65" rx="22" ry="12" fill="#7ec8e3" opacity="0.7" />
+                  {/* Urban blocks */}
+                  <rect x="130" y="90" width="60" height="40" fill="#ddd6c0" opacity="0.6" rx="2" />
+                  <rect x="50" y="120" width="40" height="30" fill="#ddd6c0" opacity="0.5" rx="2" />
+                  {/* Current point — larger, glowing */}
+                  <circle cx="60" cy="85" r="18" fill={wqiStatus.dotColor} opacity="0.2" />
+                  <circle cx="60" cy="85" r="13" fill={wqiStatus.dotColor} />
+                  <circle cx="60" cy="85" r="13" fill="none" stroke="white" strokeWidth="2.5" />
+                  <text x="60" y="89" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold" fontFamily="system-ui,sans-serif">{latestEntry?.wqi?.toFixed(0) ?? "?"}</text>
+                  {/* Other points */}
+                  <circle cx="120" cy="75" r="10" fill="#f97316" opacity="0.85" /><circle cx="120" cy="75" r="10" fill="none" stroke="white" strokeWidth="1.5" /><text x="120" y="79" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">61</text>
+                  <circle cx="175" cy="92" r="10" fill="#eab308" opacity="0.85" /><circle cx="175" cy="92" r="10" fill="none" stroke="white" strokeWidth="1.5" /><text x="175" y="96" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">73</text>
+                  <circle cx="225" cy="78" r="10" fill="#22c55e" opacity="0.85" /><circle cx="225" cy="78" r="10" fill="none" stroke="white" strokeWidth="1.5" /><text x="225" y="82" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">88</text>
+                  <circle cx="265" cy="95" r="9" fill="#3b82f6" opacity="0.85" /><circle cx="265" cy="95" r="9" fill="none" stroke="white" strokeWidth="1.5" /><text x="265" y="99" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">91</text>
+                  <circle cx="90" cy="145" r="9" fill="#ef4444" opacity="0.75" /><circle cx="90" cy="145" r="9" fill="none" stroke="white" strokeWidth="1.5" /><text x="90" y="149" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">38</text>
+                  <circle cx="200" cy="135" r="9" fill="#22c55e" opacity="0.75" /><circle cx="200" cy="135" r="9" fill="none" stroke="white" strokeWidth="1.5" /><text x="200" y="139" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">82</text>
+                  {/* Legend bar */}
+                  <rect x="0" y="198" width="320" height="22" fill="rgba(15,23,42,0.75)" />
+                  <circle cx="14" cy="209" r="4" fill="#ef4444" /><text x="22" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
+                  <circle cx="55" cy="209" r="4" fill="#eab308" /><text x="63" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Fair</text>
+                  <circle cx="95" cy="209" r="4" fill="#22c55e" /><text x="103" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
+                  <circle cx="140" cy="209" r="4" fill="#3b82f6" /><text x="148" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
+                </svg>
+              </div>
+
+              {/* Blue gradient divider */}
+              <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(30,144,255,0.05), rgba(30,144,255,0.4), rgba(30,144,255,0.05))" }} />
+
+              {/* Footer */}
+              <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(30,144,255,0.06)" }}>
                 <div>
-                  <div className="text-white text-sm font-bold">Open Full Map</div>
-                  <div className="text-slate-500 text-xs">All monitoring points</div>
+                  <div className="text-sm font-bold text-white">Open Full Map</div>
+                  <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>All monitoring points</div>
                 </div>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform" style={{ background: "linear-gradient(135deg, #1e90ff, #06b6d4)" }}>
-                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <div
+                  className="flex items-center justify-center rounded-full group-hover:translate-x-0.5 transition-transform duration-200"
+                  style={{ background: "#1e90ff", width: 32, height: 32 }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </div>
               </div>
             </button>
 
-            {/* Comparison card */}
+            {/* Compact threshold card */}
             {latestEntry?.wqi != null && (
-              <div className="rounded-3xl p-4" style={{
+              <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{
                 background: "linear-gradient(145deg, #0c1825, #0f2035)",
                 border: `1px solid ${wqiStatus.dotColor}30`,
-                boxShadow: `0 0 24px ${wqiStatus.dotColor}10`
               }}>
-                <div className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wider">Compared to average</div>
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl font-black" style={{ color: wqiStatus.textHex }}>
-                    {latestEntry.wqi > 65 ? "Above" : "Below"}
-                  </span>
-                  <span className="text-slate-400 text-sm">regional threshold</span>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${wqiStatus.dotColor}18`, border: `1px solid ${wqiStatus.dotColor}35` }}>
+                  <span className="text-sm">{latestEntry.wqi > 65 ? "↑" : "↓"}</span>
                 </div>
-                <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                  <div className="h-full rounded-full transition-all duration-1000" style={{
-                    width: `${Math.min((latestEntry.wqi / 100) * 100, 100)}%`,
-                    background: `linear-gradient(90deg, ${wqiStatus.dotColor}, #1e90ff)`
-                  }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-slate-500 font-medium">Regional threshold</span>
+                    <span className="text-xs font-bold" style={{ color: wqiStatus.textHex }}>{latestEntry.wqi > 65 ? "Above" : "Below"}</span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                    <div className="h-full rounded-full" style={{
+                      width: `${Math.min((latestEntry.wqi / 100) * 100, 100)}%`,
+                      background: `linear-gradient(90deg, ${wqiStatus.dotColor}, #1e90ff)`
+                    }} />
+                  </div>
                 </div>
               </div>
             )}

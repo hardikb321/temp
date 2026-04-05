@@ -36,7 +36,7 @@ export function Dashboard() {
             </p>
           </div>
 
-          {/* Parameter filter pills — inspired by AQI.in's top filter bar */}
+          {/* Parameter filter pills */}
           <div className="flex flex-wrap gap-3 mb-12">
             {["WQI", "pH", "DO", "BOD", "Turbidity", "TDS", "Nitrates", "Coliform"].map((param, i) => (
               <button
@@ -76,7 +76,7 @@ export function Dashboard() {
                 ))}
               </div>
 
-              {/* Trending / featured section inspired by AQI "Trending in India" */}
+              {/* Trending Alerts */}
               <div>
                 <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-widest mb-4">Trending Alerts</h3>
                 <div className="flex gap-4 overflow-x-auto pb-2">
@@ -101,87 +101,106 @@ export function Dashboard() {
               </div>
             </div>
 
-            {/* Right: Small colorful WQI Map Card */}
-            <div className="flex-shrink-0 w-full lg:w-72">
+            {/* Right: Dark WQI Map Card */}
+            <div className="flex-shrink-0 w-full lg:w-80">
               <button
                 onClick={handleWQIMapClick}
-                className="group w-full rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+                className="group w-full rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02]"
                 style={{
-                  background: "linear-gradient(145deg, #0f1923, #1a2a3a)",
-                  border: "1px solid #1e3a5f",
-                  boxShadow: "0 0 30px rgba(30,144,255,0.15)",
+                  background: "#111827",
+                  border: "1.5px solid #1e90ff",
+                  boxShadow: "0 0 0 4px rgba(30,144,255,0.12), 0 8px 40px rgba(0,0,0,0.7), 0 0 50px rgba(30,144,255,0.3)",
                 }}
               >
-                {/* Colorful map preview */}
-                <div className="relative h-48 overflow-hidden">
-                  <svg className="w-full h-full" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
-                    {/* Background */}
-                    <rect width="300" height="200" fill="#0d1b2a" />
-                    {/* Grid lines */}
-                    {[30, 60, 90, 120, 150, 180].map(y => (
-                      <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="#1a2a3a" strokeWidth="0.5" />
-                    ))}
-                    {[50, 100, 150, 200, 250].map(x => (
-                      <line key={x} x1={x} y1="0" x2={x} y2="200" stroke="#1a2a3a" strokeWidth="0.5" />
-                    ))}
-                    {/* River paths */}
-                    <path d="M 20 80 Q 80 60 140 90 T 280 75" stroke="#1e90ff" strokeWidth="2.5" fill="none" opacity="0.7" strokeDasharray="6 3" />
-                    <path d="M 10 140 Q 70 120 130 145 T 290 130" stroke="#00bcd4" strokeWidth="1.5" fill="none" opacity="0.5" />
-                    {/* Monitoring points — colorful like AQI dots */}
-                    <circle cx="60" cy="85" r="10" fill="#ef4444" opacity="0.85" />
-                    <text x="60" y="89" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">42</text>
-
-                    <circle cx="120" cy="75" r="10" fill="#f97316" opacity="0.85" />
-                    <text x="120" y="79" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">61</text>
-
-                    <circle cx="170" cy="92" r="10" fill="#eab308" opacity="0.85" />
-                    <text x="170" y="96" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">73</text>
-
-                    <circle cx="220" cy="78" r="10" fill="#22c55e" opacity="0.85" />
-                    <text x="220" y="82" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">88</text>
-
-                    <circle cx="260" cy="95" r="8" fill="#3b82f6" opacity="0.85" />
-                    <text x="260" y="99" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">91</text>
-
-                    <circle cx="90" cy="145" r="8" fill="#ef4444" opacity="0.75" />
-                    <text x="90" y="149" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">38</text>
-
-                    <circle cx="200" cy="135" r="9" fill="#22c55e" opacity="0.75" />
-                    <text x="200" y="139" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">82</text>
-
-                    {/* Legend dots */}
-                    <circle cx="15" cy="175" r="4" fill="#ef4444" />
-                    <text x="23" y="179" fill="#94a3b8" fontSize="6">Poor</text>
-                    <circle cx="55" cy="175" r="4" fill="#eab308" />
-                    <text x="63" y="179" fill="#94a3b8" fontSize="6">Fair</text>
-                    <circle cx="93" cy="175" r="4" fill="#22c55e" />
-                    <text x="101" y="179" fill="#94a3b8" fontSize="6">Good</text>
-                  </svg>
-                  {/* Top label overlay */}
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: "rgba(30,144,255,0.2)", border: "1px solid rgba(30,144,255,0.4)", color: "#60a5fa" }}>
-                    <Map className="w-3 h-3" />
-                    WQI Map
+                {/* Top blue accent bar */}
+                <div
+                  className="flex items-center justify-between px-4 py-3"
+                  style={{ background: "rgba(30,144,255,0.08)", borderBottom: "1px solid rgba(30,144,255,0.2)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Map className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />
+                    <span className="text-sm font-bold" style={{ color: "#60a5fa" }}>WQI Map</span>
                   </div>
-                  {/* Live badge */}
-                  <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold" style={{ background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.4)", color: "#4ade80" }}>
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+                    style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#4ade80" }}
+                  >
                     <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
                     Live
                   </div>
                 </div>
 
-                {/* Card footer */}
-                <div className="px-5 py-4 flex items-center justify-between">
+                {/* Terrain map SVG */}
+                <div className="relative overflow-hidden" style={{ height: 210 }}>
+                  <svg className="w-full h-full" viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="320" height="210" fill="#c8d8a0" />
+                    <rect x="0" y="0" width="100" height="80" fill="#b5cc8a" />
+                    <rect x="100" y="0" width="120" height="60" fill="#cddca0" />
+                    <rect x="220" y="0" width="100" height="90" fill="#bfd090" />
+                    <rect x="0" y="80" width="80" height="80" fill="#d4e4a8" />
+                    <rect x="150" y="80" width="90" height="70" fill="#c2d695" />
+                    <rect x="240" y="90" width="80" height="80" fill="#b8cc82" />
+                    <rect x="0" y="160" width="130" height="50" fill="#c5d898" />
+                    <rect x="200" y="150" width="120" height="60" fill="#cce0a2" />
+                    <line x1="0" y1="110" x2="320" y2="110" stroke="#f5e6c8" strokeWidth="3" />
+                    <line x1="160" y1="0" x2="160" y2="210" stroke="#f5e6c8" strokeWidth="2" />
+                    <line x1="80" y1="0" x2="60" y2="210" stroke="#ede0c0" strokeWidth="1.5" opacity="0.7" />
+                    <line x1="240" y1="0" x2="260" y2="210" stroke="#ede0c0" strokeWidth="1.5" opacity="0.7" />
+                    <path d="M 30 90 Q 70 75 110 95 Q 140 108 160 100 Q 185 90 200 105 Q 220 118 250 108 Q 270 100 300 112" stroke="#5aabdc" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.85" />
+                    <ellipse cx="75" cy="155" rx="28" ry="16" fill="#7ec8e3" opacity="0.8" />
+                    <ellipse cx="255" cy="65" rx="22" ry="12" fill="#7ec8e3" opacity="0.7" />
+                    <rect x="130" y="90" width="60" height="40" fill="#ddd6c0" opacity="0.6" rx="2" />
+                    <rect x="50" y="120" width="40" height="30" fill="#ddd6c0" opacity="0.5" rx="2" />
+                    <circle cx="60" cy="85" r="10" fill="#ef4444" opacity="0.85" />
+                    <text x="60" y="89" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">42</text>
+                    <circle cx="120" cy="75" r="10" fill="#f97316" opacity="0.85" />
+                    <text x="120" y="79" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">61</text>
+                    <circle cx="170" cy="92" r="10" fill="#eab308" opacity="0.85" />
+                    <text x="170" y="96" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">73</text>
+                    <circle cx="220" cy="78" r="10" fill="#22c55e" opacity="0.85" />
+                    <text x="220" y="82" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">88</text>
+                    <circle cx="260" cy="95" r="8" fill="#3b82f6" opacity="0.85" />
+                    <text x="260" y="99" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">91</text>
+                    <circle cx="90" cy="145" r="8" fill="#ef4444" opacity="0.75" />
+                    <text x="90" y="149" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">38</text>
+                    <circle cx="200" cy="135" r="9" fill="#22c55e" opacity="0.75" />
+                    <text x="200" y="139" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">82</text>
+                    {/* Legend */}
+                    <rect x="0" y="188" width="320" height="22" fill="rgba(15,23,42,0.72)" />
+                    <circle cx="14" cy="199" r="4" fill="#ef4444" />
+                    <text x="22" y="203" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
+                    <circle cx="55" cy="199" r="4" fill="#eab308" />
+                    <text x="63" y="203" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Fair</text>
+                    <circle cx="93" cy="199" r="4" fill="#22c55e" />
+                    <text x="101" y="203" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
+                    <circle cx="136" cy="199" r="4" fill="#3b82f6" />
+                    <text x="144" y="203" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
+                  </svg>
+                </div>
+
+                {/* Blue accent divider */}
+                <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(30,144,255,0.05), rgba(30,144,255,0.4), rgba(30,144,255,0.05))" }} />
+
+                {/* Footer with blue tint */}
+                <div
+                  className="flex items-center justify-between px-5 py-4"
+                  style={{ background: "rgba(30,144,255,0.07)", borderTop: "none" }}
+                >
                   <div>
-                    <div className="text-white font-semibold text-sm">Open Full Map</div>
-                    <div className="text-slate-500 text-xs mt-0.5">View all monitoring points</div>
+                    <div className="text-sm font-bold text-white">Open Full Map</div>
+                    <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>View all monitoring points</div>
                   </div>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform" style={{ background: "#1e90ff" }}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M7 3l4 4-4 4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <div
+                    className="flex items-center justify-center rounded-full group-hover:translate-x-0.5 transition-transform duration-200"
+                    style={{ background: "#1e90ff", width: 34, height: 34 }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                      <path d="M3 7h8M7 3l4 4-4 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
                 </div>
               </button>
 
-              {/* India label below card like AQI.in */}
               <div className="mt-3 flex items-center gap-1.5 text-slate-500 text-xs px-1">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="3" stroke="#64748b" strokeWidth="2" /><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#64748b" strokeWidth="2" /></svg>
                 India · MP Region
