@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { MyMap, type Marker, type Session } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";
 import type { MapRef } from "@/components/ui/map";
@@ -20,6 +20,7 @@ const initialSessionsByType: Record<WaterType, Session[]> = {
 
 export function MapPage() {
   const { type } = useParams<{ type: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   // Validate water type from URL
@@ -38,9 +39,26 @@ export function MapPage() {
         });
       }
     };
-    window.addEventListener("flyToPoint", handleFlyTo as EventListener);        
+    
+    // Handle flyToPoint event
+    window.addEventListener("flyToPoint", handleFlyTo as EventListener);
+    
+    // Handle URL query parameters for auto-zoom
+    const lat = searchParams.get("lat");
+    const lng = searchParams.get("lng");
+    const zoom = searchParams.get("zoom");
+    
+    if (lat && lng && mapRef.current) {
+      const zoomLevel = zoom ? parseInt(zoom) : 15;
+      mapRef.current.flyTo({
+        center: [parseFloat(lng), parseFloat(lat)],
+        zoom: zoomLevel,
+        duration: 1500,
+      });
+    }
+    
     return () => window.removeEventListener("flyToPoint", handleFlyTo as EventListener);
-  }, []);
+  }, [searchParams]);
   const [draftMarkersByType, setDraftMarkersByType] =
     useState<Record<WaterType, Marker[]>>(initialMarkersByType);
   const [submittedMarkersByType, setSubmittedMarkersByType] =

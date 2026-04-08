@@ -293,15 +293,27 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
             </div>
           </div>
 
-          {/* Coordinates + Lake ID */}
-          <div className="px-3 pb-2 flex items-center gap-3 text-[10px] text-muted-foreground">
-            <span className="truncate">
-              <span className="text-foreground/60">📍</span> {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
-            </span>
-            {marker.lakeId && (
-              <span className="shrink-0 px-1.5 py-0.5 rounded bg-muted/40 text-[9px] font-mono">
-                ID: {marker.lakeId}
+          {/* Coordinates + Location Info */}
+          <div className="px-3 pb-2 space-y-1.5">
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span className="truncate">
+                <span className="text-foreground/60">📍</span> {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
               </span>
+              {marker.lakeId && (
+                <span className="shrink-0 px-1.5 py-0.5 rounded bg-muted/40 text-[9px] font-mono">
+                  ID: {marker.lakeId}
+                </span>
+              )}
+            </div>
+            {(marker.city_name || marker.state_name) && (
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span className="text-foreground/60">📍</span>
+                <span>
+                  {marker.city_name && <span className="text-foreground font-medium">{marker.city_name}</span>}
+                  {marker.city_name && marker.state_name && <span className="mx-1">,</span>}
+                  {marker.state_name && <span className="text-foreground font-medium">{marker.state_name}</span>}
+                </span>
+              </div>
             )}
           </div>
 

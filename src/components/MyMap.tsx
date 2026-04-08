@@ -46,6 +46,10 @@ export interface Marker {
   color?: MarkerColor;
   /** Optional lake identifier when the point is associated with a lake */
   lakeId?: string;
+  /** City name from the backend */
+  city_name?: string;
+  /** State name from the backend */
+  state_name?: string;
   turbidity: number;
   ph: number;
   temperature?: number;
@@ -1111,6 +1115,8 @@ export function MyMap({
                 latitude:  exactLat,
                 longitude: exactLng,
                 lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
+                city_name: properties.city_name != null ? String(properties.city_name) : undefined,
+                state_name: properties.state_name != null ? String(properties.state_name) : undefined,
                 turbidity: 0,
                 ph:        0,
                 // avg_wqi available — surface it if your popup uses it

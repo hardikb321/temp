@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronUp, Map, Maximize2 } from "lucide-react";
 import type { Marker } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";
 import { PointChartsPanel } from "@/components/PointChartsPanel";
+
+interface StateWQI {
+  state_id: number;
+  state_name: string;
+  avg_wqi: number;
+  lat: number;
+  lng: number;
+}
 
 interface HistoryEntry {
   created_at: string;
@@ -40,6 +48,14 @@ function getWqiStatus(wqi: number | null | undefined): {
   if (wqi < 85)
     return { label: "Good", color: "text-green-400", bgColor: "bg-green-900/30", dotColor: "#22c55e", barColor: "#22c55e", textHex: "#4ade80" };
   return { label: "Excellent", color: "text-cyan-400", bgColor: "bg-cyan-900/30", dotColor: "#06b6d4", barColor: "#06b6d4", textHex: "#22d3ee" };
+}
+
+function getWqiColor(wqi: number | null): { color: string; bgColor: string; label: string } {
+  if (wqi == null) return { color: "#6b7280", bgColor: "#f3f4f6", label: "Unknown" };
+  if (wqi < 40) return { color: "#ef4444", bgColor: "#fee2e2", label: "Poor" };
+  if (wqi < 65) return { color: "#f59e0b", bgColor: "#fef3c7", label: "Fair" };
+  if (wqi < 85) return { color: "#22c55e", bgColor: "#dcfce7", label: "Good" };
+  return { color: "#3b82f6", bgColor: "#dbeafe", label: "Excellent" };
 }
 
 // WQI scale bar — mirrors AQI.in's gradient bar
@@ -268,6 +284,7 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
 export function PointDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const statesRef = useRef<HTMLDivElement>(null);
 
   const [marker, setMarker] = useState<Marker | null>(null);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
@@ -278,6 +295,8 @@ export function PointDetailPage() {
   const [activeTab, setActiveTab] = useState<"chart" | "history">("chart");
   const [expandedHistoryIdx, setExpandedHistoryIdx] = useState<number | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [states, setStates] = useState<StateWQI[]>([]);
+  const [statesLoading, setStatesLoading] = useState(true);
 
   useEffect(() => {
     if (!id) { setPageError("No point ID provided in URL"); return; }
@@ -320,6 +339,19 @@ export function PointDetailPage() {
       })
       .catch(console.error);
   }, [marker]);
+
+  useEffect(() => {
+    fetch("/api/lakes/states/wqi")
+      .then((r) => r.ok ? r.json() : Promise.reject("Failed to fetch states"))
+      .then((json) => {
+        setStates(json?.data ?? []);
+        setStatesLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching states:", err);
+        setStatesLoading(false);
+      });
+  }, []);
 
   const latestEntry = historyEntries[0] ?? null;
 
@@ -366,6 +398,41 @@ export function PointDetailPage() {
 
       <Navbar />
 
+      {/* Breadcrumb Navigation */}
+      <div className="border-b border-gray-800/50" style={{ background: "rgba(255,255,255,0.02)", backdropFilter: "blur(8px)" }}>
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-3">
+          <div className="flex items-center gap-2 text-sm">
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+            >
+              Dashboard
+            </button>
+            <span className="text-gray-600">/</span>
+            <button
+              onClick={() => statesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="text-blue-400 hover:text-blue-300 transition-colors font-medium cursor-pointer"
+            >
+              India
+            </button>
+            {marker.state_name && (
+              <>
+                <span className="text-gray-600">/</span>
+                <span className="text-gray-400">{marker.state_name}</span>
+              </>
+            )}
+            {marker.city_name && (
+              <>
+                <span className="text-gray-600">/</span>
+                <span className="text-gray-400">{marker.city_name}</span>
+              </>
+            )}
+            <span className="text-gray-600">/</span>
+            <span className="text-white font-medium">Lake {marker.lakeId}</span>
+          </div>
+        </div>
+      </div>
+
       <div className="relative max-w-6xl mx-auto px-4 md:px-8 py-8">
 
         {/* Top bar */}
@@ -378,11 +445,25 @@ export function PointDetailPage() {
             >
               <ArrowLeft className="w-4 h-4" /> Back
             </button>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-              <span style={{ color: wqiStatus.dotColor }}>⬡</span>
-              <span className="text-white font-bold">Lake {marker.lakeId}</span>
-              <span className="text-slate-600">·</span>
-              <span className="text-slate-400 text-xs font-mono">{marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}</span>
+            <div className="flex flex-col gap-2 px-4 py-2 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex items-center gap-2">
+                <span style={{ color: wqiStatus.dotColor }}>⬡</span>
+                <span className="text-white font-bold">Lake {marker.lakeId}</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-400 text-xs font-mono">{marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}</span>
+              </div>
+              {(marker.city_name || marker.state_name) && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-300">
+                  <span>📍</span>
+                  <span>
+                    {marker.city_name && <span className="text-white font-medium">{marker.city_name}</span>}
+                    {marker.city_name && marker.state_name && <span className="mx-1 text-slate-600">,</span>}
+                    {marker.state_name && <span className="text-white font-medium">{marker.state_name}</span>}
+                    {(marker.city_name || marker.state_name) && <span className="mx-1 text-slate-600">,</span>}
+                    <span className="text-slate-400">India</span>
+                  </span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -858,6 +939,100 @@ export function PointDetailPage() {
             </div>
           </div>
         )}
+
+        {/* States WQI Section */}
+        <div ref={statesRef} className="py-12">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-2" style={{ color: "#ffffff" }}>
+              India's States
+            </h2>
+            <p className="text-slate-400 text-lg">
+              Average Water Quality Index
+            </p>
+          </div>
+
+          {/* Scrollable states grid */}
+          {!statesLoading && states.length > 0 ? (
+            <div className="overflow-x-auto pb-4 scrollbar-hide">
+              <div className="flex gap-4 min-w-min">
+                {states.map((state) => {
+                  const wqiStatusColor = getWqiColor(state.avg_wqi);
+                  const statePath = state.state_name.toLowerCase().replace(/\s+/g, "-");
+                  return (
+                    <div
+                      key={state.state_id}
+                      onClick={() => navigate(`/dashboard/india/${statePath}`)}
+                      className="flex-shrink-0 rounded-2xl p-6 w-72 cursor-pointer group transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+                      style={{
+                        background: "linear-gradient(135deg, #0c1825 0%, #0f2035 100%)",
+                        border: `1.5px solid ${wqiStatusColor.color}40`,
+                        boxShadow: `0 0 0 1px ${wqiStatusColor.color}20, 0 8px 32px rgba(0,0,0,0.4)`,
+                      }}
+                    >
+                      {/* Top accent bar */}
+                      <div className="h-1 w-12 rounded-full mb-4" style={{ background: wqiStatusColor.color }} />
+
+                      {/* State name and link icon */}
+                      <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-2xl font-bold text-white truncate">{state.state_name}</h3>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <path d="M3 13h10V3H9" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M10 2l3 3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+
+                      {/* WQI Score */}
+                      <div className="mb-6">
+                        <div className="text-5xl font-bold mb-1" style={{ color: wqiStatusColor.color }}>
+                          {state.avg_wqi ? Number(state.avg_wqi).toFixed(0) : "—"}
+                        </div>
+                        <div
+                          className="text-xs font-bold px-2 py-1 rounded w-fit"
+                          style={{ background: wqiStatusColor.bgColor, color: wqiStatusColor.color }}
+                        >
+                          {wqiStatusColor.label}
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div style={{ height: "1px", background: `${wqiStatusColor.color}20`, marginBottom: "1rem" }} />
+
+                      {/* Coordinates */}
+                      <div className="text-xs text-slate-400">
+                        <div className="flex justify-between">
+                          <span>Lat</span>
+                          <span className="font-mono">{state.lat ? state.lat.toFixed(2) : "—"}</span>
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span>Lng</span>
+                          <span className="font-mono">{state.lng ? state.lng.toFixed(2) : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : statesLoading ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="text-slate-400">Loading states...</div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-40">
+              <div className="text-slate-400">No state data available</div>
+            </div>
+          )}
+        </div>
+
+        <style>{`
+          .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
       </div>
     </div>
   );
