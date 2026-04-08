@@ -402,7 +402,10 @@ export function Dashboard() {
     fetch("/api/lakes/states/wqi")
       .then((r) => r.ok ? r.json() : Promise.reject("Failed to fetch states"))
       .then((json) => {
-        setStates(json?.data ?? []);
+        const allStates = json?.data ?? [];
+        // Filter out states with null or undefined WQI (states with no monitoring points)
+        const filteredStates = allStates.filter((state: StateWQI) => state.avg_wqi != null);
+        setStates(filteredStates);
         setLoading(false);
       })
       .catch((err) => {

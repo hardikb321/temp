@@ -93,7 +93,10 @@ export function CityDetailPage() {
       })
       .then((r) => r?.ok ? r.json() : Promise.reject("Failed to fetch lakes"))
       .then((json) => {
-        setLakes(json?.data ?? []);
+        const allLakes = json?.data ?? [];
+        // Filter out lakes with null or undefined WQI (lakes with no monitoring points)
+        const filteredLakes = allLakes.filter((lake: LakeWQI) => lake.avg_wqi != null);
+        setLakes(filteredLakes);
         setLoading(false);
       })
       .catch((err) => {
