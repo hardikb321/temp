@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import Chart from "chart.js/auto";
 import { X } from "lucide-react";
 import type { Marker } from "./MyMap";
+import type { WaterType } from "@/types";
 
 interface HistoryEntry {
   created_at: string;
@@ -19,20 +20,22 @@ interface MonthlyWqi {
 
 interface PointDataCardProps {
   marker: Marker | null;
+  waterType?: WaterType;
   onClose: () => void;
 }
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Helper to determine WQI status
-function getWqiStatus(wqi: number | null | undefined): { label: string; color: string; bgColor: string } {
-  if (wqi == null) return { label: "Unknown", color: "text-gray-500", bgColor: "bg-gray-100" };
-  if (wqi < 40) return { label: "Bad", color: "text-red-600", bgColor: "bg-red-100" };
-  if (wqi < 65) return { label: "Average", color: "text-yellow-600", bgColor: "bg-yellow-100" };
-  return { label: "Good", color: "text-green-600", bgColor: "bg-green-100" };
+// Helper to determine WQI status — matches PointDetailPage
+function getWqiStatus(wqi: number | null | undefined): { label: string; dotColor: string } {
+  if (wqi == null) return { label: "Unknown", dotColor: "#6b7280" };
+  if (wqi < 40) return { label: "Poor", dotColor: "#ef4444" };
+  if (wqi < 65) return { label: "Moderate", dotColor: "#eab308" };
+  if (wqi < 85) return { label: "Good", dotColor: "#22c55e" };
+  return { label: "Excellent", dotColor: "#06b6d4" };
 }
 
-export function PointDataCard({ marker, onClose }: PointDataCardProps) {
+export function PointDataCard({ marker, waterType = "lake", onClose }: PointDataCardProps) {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
@@ -46,7 +49,8 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
 
   // Fetch point history when marker changes
   useEffect(() => {
-    if (!marker?.lakeId) {
+    const objectId = marker?.lakeId || marker?.riverId;
+    if (!objectId) {
       setHistoryEntries([]);
       return;
     }
@@ -55,8 +59,11 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
     setError(null);
 
     const maxAge = 100;
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+    
     fetch(
-      `/api/lakes/marker-history?lake_id=${encodeURIComponent(marker.lakeId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=${maxAge}&offset=0`
+      `/api/${route}/marker-history?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=${maxAge}&offset=0`
     )
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -71,11 +78,12 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
         setHistoryEntries([]);
       })
       .finally(() => setLoading(false));
-  }, [marker]);
+  }, [marker, waterType]);
 
   // Fetch chart data when marker changes
   useEffect(() => {
-    if (!marker?.lakeId) {
+    const objectId = marker?.lakeId || marker?.riverId;
+    if (!objectId) {
       setWqiData([]);
       setChartYear(null);
       return;
@@ -84,8 +92,11 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
     const year = new Date().getFullYear();
     setChartYear(year);
 
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+
     fetch(
-      `/api/lakes/marker-chart?lake_id=${encodeURIComponent(marker.lakeId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`
+      `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`
     )
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -97,7 +108,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
       .catch((_err: unknown) => {
         setWqiData([]);
       });
-  }, [marker]);
+  }, [marker, waterType]);
 
   // Get the latest entry
   const latestEntry = historyEntries[0] ?? null;
@@ -238,12 +249,7 @@ export function PointDataCard({ marker, onClose }: PointDataCardProps) {
   const statusInfo = getWqiStatus(latestWqi);
 
   // Colored accent based on WQI status
-  const accentColor =
-    latestWqi == null ? "#6b7280"
-    : latestWqi < 40  ? "#ef4444"
-    : latestWqi < 65  ? "#f59e0b"
-    : latestWqi < 85  ? "#3b82f6"
-    : "#22c55e";
+  const accentColor = statusInfo.dotColor;
 
   return (
     <>

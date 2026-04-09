@@ -11,20 +11,21 @@ const mockUser = {
 
 interface NavbarProps {
   onRejectedSessionResubmit?: (markers: Marker[]) => void;
+  waterType?: "lake" | "river" | "ponds" | string;
 }
 
-export function Navbar({ onRejectedSessionResubmit }: NavbarProps) {
+export function Navbar({ onRejectedSessionResubmit, waterType }: NavbarProps) {
   return (
     <header className="w-full border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-40">
       <div className="flex items-center justify-between h-14 px-6">
         <Link to="/dashboard" className="flex items-center gap-2 group">        
           <div className="font-semibold text-base bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-            Water Quality Monitor
+            Varuna Dhrishti
           </div>
         </Link>
 
         <div className="flex items-center gap-4">
-          <ProfileDropdown user={mockUser} onRejectedSessionResubmit={onRejectedSessionResubmit} />
+          <ProfileDropdown user={mockUser} onRejectedSessionResubmit={onRejectedSessionResubmit} waterType={waterType as any} />
         </div>
       </div>
     </header>

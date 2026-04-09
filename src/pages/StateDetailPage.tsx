@@ -41,6 +41,18 @@ function getWqiInfo(wqi: number | null): {
   return { label: "Excellent", color: "text-cyan-400", bgColor: "bg-cyan-900/30", dotColor: "#06b6d4", textHex: "#22d3ee" };
 }
 
+function getWqiColor(wqi: number | null): { color: string; bgColor: string; label: string } {
+  if (wqi == null) return { color: "#6b7280", bgColor: "#6b728026", label: "Unknown" };
+  if (wqi < 40) return { color: "#ef4444", bgColor: "#ef444426", label: "Poor" };
+  if (wqi < 65) return { color: "#f59e0b", bgColor: "#f59e0b26", label: "Fair" };
+  if (wqi < 85) return { color: "#22c55e", bgColor: "#22c55e26", label: "Good" };
+  return { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
+}
+
+function toStateSlug(stateName: string): string {
+  return stateName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
+
 function WqiGauge({ wqi, color }: { wqi: number; color: string }) {
   const pct = Math.min(Math.max(wqi, 0), 100);
   const r = 18;
@@ -105,6 +117,7 @@ export function StateDetailPage() {
 
   const [stateData, setStateData] = useState<StateWQI | null>(null);
   const [cities, setCities] = useState<CityWQI[]>([]);
+  const [allStates, setAllStates] = useState<StateWQI[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<"avg_wqi" | "city_name">("avg_wqi");
@@ -121,6 +134,7 @@ export function StateDetailPage() {
       .then((r) => (r.ok ? r.json() : Promise.reject("Failed to fetch states")))
       .then((json) => {
         const states = json?.data ?? [];
+        setAllStates(states.filter((s: StateWQI) => s.avg_wqi != null));
         const foundState = states.find(
           (s: any) =>
             s.state_name.toLowerCase().replace(/\s+/g, "-") ===
@@ -431,8 +445,8 @@ export function StateDetailPage() {
                       className="group w-full rounded-2xl px-5 py-4 flex items-center justify-between transition-all duration-200 hover:scale-[1.02]"
                       style={{
                         background: `linear-gradient(135deg, ${wqiInfo.dotColor}18, #1e90ff12)`,
-                        border: `1px solid ${wqiInfo.dotColor}40`,
-                        boxShadow: `0 0 20px ${wqiInfo.dotColor}15`,
+                        border: `2px solid ${wqiInfo.dotColor}80`,
+                        boxShadow: `0 0 30px ${wqiInfo.dotColor}30`,
                       }}
                     >
                       <div className="flex items-center gap-3">
@@ -444,7 +458,7 @@ export function StateDetailPage() {
                         </div>
                         <div className="text-left">
                           <div className="text-sm font-bold text-white">Explore Cities in {formattedStateName}</div>
-                          <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>
+                          <div className="text-xs mt-0.5 font-medium" style={{ color: wqiInfo.textHex }}>
                             {cities.length} cities with WQI data
                           </div>
                         </div>
@@ -693,7 +707,6 @@ export function StateDetailPage() {
                           style={{
                             background: info.bgColor,
                             color: info.color,
-                            border: `1px solid ${info.borderColor}`,
                           }}
                         >
                           <span
@@ -753,7 +766,216 @@ export function StateDetailPage() {
             </div>
           )}
         </div>
+        
+        {/* States WQI Section */}
+        <div className="py-12">
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-2" style={{ color: "#ffffff" }}>
+              India's States
+            </h2>
+            <p className="text-slate-400 text-lg">
+              Average Water Quality Index
+            </p>
+          </div>
+
+          <div className="overflow-x-auto pb-4 scrollbar-hide">
+            <div style={{
+              display: "grid",
+              gridTemplateRows: "1fr 1fr",
+              gridAutoFlow: "column",
+              gridAutoColumns: 240,
+              gap: 16,
+              padding: "18px 4px 12px",
+              width: "max-content",
+            }}>
+              {allStates.map((state) => {
+                const wqiStatus = getWqiColor(state.avg_wqi);
+                const statePath = state.state_name.toLowerCase().replace(/\s+/g, "-");
+                const slug = toStateSlug(state.state_name);
+                const imgUrl = `/states/${slug}.png`;
+                return (
+                  <div
+                    key={state.state_id}
+                    onClick={() => {
+                      window.scrollTo(0, 0);
+                      navigate(`/dashboard/india/${statePath}`);
+                    }}
+                    className="state-card transition-all duration-300 cursor-pointer"
+                    style={{
+                      borderRadius: 18,
+                      overflow: "hidden",
+                      position: "relative",
+                      height: 220,
+                      border: `1px solid ${wqiStatus.color}30`,
+                      boxShadow: `0 4px 24px rgba(0,0,0,0.5)`,
+                    }}
+                    onMouseEnter={e => {
+                      const el = e.currentTarget as HTMLDivElement;
+                      el.style.transform = "translateY(-4px) scale(1.02)";
+                      el.style.borderColor = wqiStatus.color + "80";
+                      el.style.boxShadow = `0 16px 48px rgba(0,0,0,0.7), 0 0 28px ${wqiStatus.color}30`;
+                      const img = el.querySelector(".card-bg-img") as HTMLElement;
+                      if (img) img.style.transform = "scale(1.08)";
+                      const overlay = el.querySelector(".card-overlay") as HTMLElement;
+                      if (overlay) overlay.style.background = `linear-gradient(to top, rgba(5,10,20,0.96) 0%, rgba(5,10,20,0.6) 50%, rgba(5,10,20,0.3) 100%)`;
+                    }}
+                    onMouseLeave={e => {
+                      const el = e.currentTarget as HTMLDivElement;
+                      el.style.transform = "";
+                      el.style.borderColor = wqiStatus.color + "30";
+                      el.style.boxShadow = `0 4px 24px rgba(0,0,0,0.5)`;
+                      const img = el.querySelector(".card-bg-img") as HTMLElement;
+                      if (img) img.style.transform = "scale(1)";
+                      const overlay = el.querySelector(".card-overlay") as HTMLElement;
+                      if (overlay) overlay.style.background = `linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.55) 55%, rgba(5,10,20,0.18) 100%)`;
+                    }}
+                  >
+                    {/* Background photo */}
+                    <img
+                      className="card-bg-img"
+                      src={imgUrl}
+                      alt={state.state_name}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        objectPosition: "center",
+                        transition: "transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                      }}
+                      onError={e => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
+                    />
+
+                    {/* Fallback background if no image */}
+                    <div style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "none",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: `linear-gradient(135deg, ${wqiStatus.color}18 0%, #0d1520 100%)`,
+                    }}>
+                      <svg width="56" height="56" viewBox="0 0 56 56" fill="none" opacity="0.25">
+                        <path d="M28 8C17 8 8 17 8 28s9 20 20 20 20-9 20-20S39 8 28 8z" stroke={wqiStatus.color} strokeWidth="1.5"/>
+                        <path d="M16 28 Q28 14 40 28 Q28 42 16 28z" stroke={wqiStatus.color} strokeWidth="1.2" fill="none"/>
+                      </svg>
+                    </div>
+
+                    {/* Gradient overlay */}
+                    <div
+                      className="card-overlay"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        background: `linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.55) 55%, rgba(5,10,20,0.18) 100%)`,
+                        transition: "background 0.3s ease",
+                      }}
+                    />
+
+                    {/* WQI status badge */}
+                    <div style={{
+                      position: "absolute",
+                      top: 12,
+                      right: 12,
+                      background: `${wqiStatus.color}22`,
+                      border: `1px solid ${wqiStatus.color}55`,
+                      borderRadius: 20,
+                      padding: "3px 10px",
+                      backdropFilter: "blur(8px)",
+                      WebkitBackdropFilter: "blur(8px)",
+                    }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: wqiStatus.color, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                        {wqiStatus.label}
+                      </span>
+                    </div>
+
+                    {/* Text content */}
+                    <div style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      padding: "16px 16px 14px",
+                    }}>
+                      <div style={{
+                        fontSize: 15,
+                        fontWeight: 700,
+                        color: "#ffffff",
+                        letterSpacing: "0.01em",
+                        marginBottom: 6,
+                        textShadow: "0 1px 8px rgba(0,0,0,0.8)",
+                        lineHeight: 1.2,
+                      }}>
+                        {state.state_name}
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "flex-end", justifyItems: "space-between" }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 1, letterSpacing: "0.08em", textTransform: "uppercase" }}>Avg WQI</div>
+                          <div style={{
+                            fontSize: 36,
+                            fontWeight: 800,
+                            color: wqiStatus.color,
+                            lineHeight: 1,
+                            textShadow: `0 0 20px ${wqiStatus.color}60`,
+                          }}>
+                            {state.avg_wqi ? Number(state.avg_wqi).toFixed(0) : "—"}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: "right", marginLeft: "auto" }}>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+                            <div>
+                              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginBottom: 1, letterSpacing: "0.06em" }}>LAT</div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>{state.lat?.toFixed(2) ?? "—"}</div>
+                            </div>
+                            <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)" }} />
+                            <div>
+                              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginBottom: 1, letterSpacing: "0.06em" }}>LNG</div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>{state.lng?.toFixed(2) ?? "—"}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        marginTop: 10,
+                        height: 2,
+                        borderRadius: 2,
+                        background: `linear-gradient(90deg, ${wqiStatus.color}, ${wqiStatus.color}30)`,
+                        opacity: 0.7,
+                      }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
       </div>
+      <style>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .state-card {
+          transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                      box-shadow 0.35s ease,
+                      border-color 0.35s ease;
+        }
+        .card-bg-img {
+          transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+      `}</style>
     </div>
   );
 }

@@ -46,6 +46,7 @@ export interface Marker {
   color?: MarkerColor;
   /** Optional lake identifier when the point is associated with a lake */
   lakeId?: string;
+  riverId?: string;
   /** City name from the backend */
   city_name?: string;
   /** State name from the backend */
@@ -112,7 +113,7 @@ function randomInRange(min: number, max: number): number {
 }
 const WATER_TYPE_MARKER_TILE_URL: Record<WaterType, string> = {
   ponds: "http://localhost:8000/api/ponds/markers/{z}/{x}/{y}.mvt",
-  river: "http://localhost:8000/api/river/markers/{z}/{x}/{y}.mvt",
+  river: "http://localhost:8000/api/rivers/markers/{z}/{x}/{y}.mvt",
   lake:  "http://localhost:8000/api/lakes/markers/{z}/{x}/{y}.mvt",
 };
 
@@ -120,37 +121,39 @@ const WATER_TYPE_TILE_CONFIG: Record<
   WaterType,
   {
     sourceId: string;
-    fillLayerId: string;
-    outlineLayerId: string;
+    fillLayerId?: string;
+    outlineLayerId?: string;
+    lineLayerId?: string;
     tileUrl: string;
     sourceLayer: string;
-    fillColor: string;
-    outlineColor: string;
+    fillColor?: string;
+    outlineColor?: string;
+    lineColor?: string;
+    lineWidth?: number;
   }
 > = {
   ponds: {
     sourceId: "india-ponds",
     fillLayerId: "india-ponds-fill",
     outlineLayerId: "india-ponds-outline",
-    tileUrl: "http://localhost:8080/data/india_ponds/{z}/{x}/{y}.pbf",
+    tileUrl: "http://localhost:8081/data/india_ponds/{z}/{x}/{y}.pbf",
     sourceLayer: "ponds",
     fillColor: "#3fa34d",
     outlineColor: "#256d1b",
   },
   river: {
     sourceId: "india-river",
-    fillLayerId: "india-river-fill",
-    outlineLayerId: "india-river-outline",
-    tileUrl: "http://localhost:8080/data/india_river/{z}/{x}/{y}.pbf",
-    sourceLayer: "river",
-    fillColor: "#2b8cbe",
-    outlineColor: "#155b7a",
+    lineLayerId: "india-river-line",
+    tileUrl: "http://localhost:8081/data/rivers/{z}/{x}/{y}.pbf",
+    sourceLayer: "rivers",
+    lineColor: "#2b8cbe",
+    lineWidth: 1.5,
   },
   lake: {
     sourceId: "india-lakes",
     fillLayerId: "india-lakes-fill",
     outlineLayerId: "india-lakes-outline",
-    tileUrl: "http://localhost:8080/data/india_lakes/{z}/{x}/{y}.pbf",
+    tileUrl: "http://localhost:8081/data/india_lakes/{z}/{x}/{y}.pbf",
     sourceLayer: "lakes",
     fillColor: "#4a90d9",
     outlineColor: "#1a5fa8",
@@ -175,12 +178,16 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
     try {
       if (map.getStyle && map.getStyle()) {
         // Remove existing layers
-        if (map.getLayer(layerConfig.outlineLayerId)) {
+        if (layerConfig.outlineLayerId && map.getLayer(layerConfig.outlineLayerId)) {
           map.removeLayer(layerConfig.outlineLayerId);
         }
 
-        if (map.getLayer(layerConfig.fillLayerId)) {
+        if (layerConfig.fillLayerId && map.getLayer(layerConfig.fillLayerId)) {
           map.removeLayer(layerConfig.fillLayerId);
+        }
+
+        if (layerConfig.lineLayerId && map.getLayer(layerConfig.lineLayerId)) {
+          map.removeLayer(layerConfig.lineLayerId);
         }
 
         // Remove source
@@ -201,33 +208,58 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
     });
 
     // Fill layer
-    map.addLayer({
-      id: layerConfig.fillLayerId,
-      type: "fill",
-      source: layerConfig.sourceId,
-      "source-layer": layerConfig.sourceLayer,
-      paint: {
-        "fill-color": layerConfig.fillColor,
-        "fill-opacity": 0.5,
-      },
-    });
+    if (layerConfig.fillLayerId && layerConfig.fillColor) {
+      map.addLayer({
+        id: layerConfig.fillLayerId,
+        type: "fill",
+        source: layerConfig.sourceId,
+        "source-layer": layerConfig.sourceLayer,
+        paint: {
+          "fill-color": layerConfig.fillColor,
+          "fill-opacity": 0.5,
+        },
+      });
+    }
 
     // Outline layer
-    map.addLayer({
-      id: layerConfig.outlineLayerId,
-      type: "line",
-      source: layerConfig.sourceId,
-      "source-layer": layerConfig.sourceLayer,
-      paint: {
-        "line-color": layerConfig.outlineColor,
-        "line-width": 1,
-      },
-    });
+    if (layerConfig.outlineLayerId && layerConfig.outlineColor) {
+      map.addLayer({
+        id: layerConfig.outlineLayerId,
+        type: "line",
+        source: layerConfig.sourceId,
+        "source-layer": layerConfig.sourceLayer,
+        paint: {
+          "line-color": layerConfig.outlineColor,
+          "line-width": 1,
+        },
+      });
+    }
 
+    // Line layer (e.g. rivers)
+    if (layerConfig.lineLayerId && layerConfig.lineColor) {
+      map.addLayer({
+        id: layerConfig.lineLayerId,
+        type: "line",
+        source: layerConfig.sourceId,
+        "source-layer": layerConfig.sourceLayer,
+        paint: {
+          "line-color": layerConfig.lineColor,
+          "line-width": layerConfig.lineWidth ?? 1.5,
+          "line-opacity": 0.8,
+        },
+      });
+    }
+    
     // Debug click handler
     const handleClick = (e: any) => {
+      const layersToQuery = [
+        layerConfig.fillLayerId,
+        layerConfig.outlineLayerId,
+        layerConfig.lineLayerId
+      ].filter((id): id is string => Boolean(id));
+
       const features = map.queryRenderedFeatures(e.point, {
-        layers: [layerConfig.fillLayerId, layerConfig.outlineLayerId],
+        layers: layersToQuery,
       });
 
       if (features.length === 0) {
@@ -245,11 +277,14 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
 
       try {
         if (map.getStyle && map.getStyle()) {
-          if (map.getLayer(layerConfig.outlineLayerId))
+          if (layerConfig.outlineLayerId && map.getLayer(layerConfig.outlineLayerId))
             map.removeLayer(layerConfig.outlineLayerId);
 
-          if (map.getLayer(layerConfig.fillLayerId))
+          if (layerConfig.fillLayerId && map.getLayer(layerConfig.fillLayerId))
             map.removeLayer(layerConfig.fillLayerId);
+
+          if (layerConfig.lineLayerId && map.getLayer(layerConfig.lineLayerId))
+            map.removeLayer(layerConfig.lineLayerId);
 
           if (map.getSource(layerConfig.sourceId))
             map.removeSource(layerConfig.sourceId);
@@ -265,14 +300,16 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
     if (!map || !isLoaded) return;
 
     const layerConfig = WATER_TYPE_TILE_CONFIG[waterType];
-    const visibility = showTiles ? "visible" : "none";
 
     try {
-      if (map.getLayer(layerConfig.fillLayerId)) {
+      if (layerConfig.fillLayerId && map.getLayer(layerConfig.fillLayerId)) {
         map.setPaintProperty(layerConfig.fillLayerId, "fill-opacity", showTiles ? 0.5 : 0);
       }
-      if (map.getLayer(layerConfig.outlineLayerId)) {
+      if (layerConfig.outlineLayerId && map.getLayer(layerConfig.outlineLayerId)) {
         map.setPaintProperty(layerConfig.outlineLayerId, "line-opacity", showTiles ? 1 : 0);
+      }
+      if (layerConfig.lineLayerId && map.getLayer(layerConfig.lineLayerId)) {
+        map.setPaintProperty(layerConfig.lineLayerId, "line-opacity", showTiles ? 0.8 : 0);
       }
     } catch (err) {
       console.debug("Failed to update layer visibility", err);
@@ -282,6 +319,46 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
   return null;
 }
 
+function HighlightedRiverLayer({ geometry }: { geometry: any }) {
+  const { map, isLoaded } = useMap();
+
+  useEffect(() => {
+    if (!map || !isLoaded || !geometry) return;
+
+    const sourceId = "temp-river-highlight";
+    const layerId = "temp-river-highlight-layer";
+
+    if (map.getSource(sourceId)) {
+      (map.getSource(sourceId) as any).setData(geometry);
+    } else {
+      map.addSource(sourceId, {
+        type: "geojson",
+        data: geometry,
+      });
+
+      map.addLayer({
+        id: layerId,
+        type: "line",
+        source: sourceId,
+        paint: {
+          "line-color": "#38bdf8", // shiny sky blue
+          "line-width": 5,
+          "line-opacity": 0.8,
+          "line-blur": 1,
+        },
+      });
+    }
+
+    return () => {
+      try {
+        if (map.getLayer(layerId)) map.removeLayer(layerId);
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+      } catch (e) {}
+    };
+  }, [map, isLoaded, geometry]);
+
+  return null;
+}
 
 function generateSampleMarkers(count: number, centerLng: number, centerLat: number): Marker[] {
   const markers: Marker[] = [];
@@ -455,13 +532,21 @@ export function MyMap({
   const [markerHistoryPanelMarker, setMarkerHistoryPanelMarker] = useState<Marker | null>(null);
   const [samplePointIds, setSamplePointIds] = useState<Set<string>>(new Set());
   const [lakeId, setLakeId] = useState<string | null>(null);
+  const [riverId, setRiverId] = useState<string | null>(null);
+  const [riverGeometry, setRiverGeometry] = useState<any>(null);
   const [isResolvingLakeId, setIsResolvingLakeId] = useState(false);
+  const [isResolvingRiverId, setIsResolvingRiverId] = useState(false);
   type LakeSnapStatus =
     | { type: "idle" }
     | { type: "inside"; lakeId: string; lakeName?: string }
     | { type: "snapped"; lakeId: string; lakeName?: string; distanceMeters: number }
     | { type: "error"; message: string };
+  type RiverSnapStatus =
+    | { type: "idle" }
+    | { type: "valid"; riverId: string; distanceMeters: number }
+    | { type: "error"; message: string };
   const [lakeSnapStatus, setLakeSnapStatus] = useState<LakeSnapStatus>({ type: "idle" });
+  const [riverSnapStatus, setRiverSnapStatus] = useState<RiverSnapStatus>({ type: "idle" });
   const [draftPage, setDraftPage] = useState(0);
   const DRAFT_PAGE_SIZE = 10;
   const [isSubmittingDraft, setIsSubmittingDraft] = useState(false);
@@ -505,7 +590,10 @@ export function MyMap({
     setIsEssentialModalOpen(false);
     setEssentialParameters({});
     setLakeId(null);
+    setRiverId(null);
+    setRiverGeometry(null);
     setLakeSnapStatus({ type: "idle" });
+    setRiverSnapStatus({ type: "idle" });
     setSelectedClusterPoint(null);
     setMarkerHistoryPanelMarker(null);
     setObservedAt("");
@@ -679,6 +767,61 @@ export function MyMap({
     }
   }, [waterType, latitude, longitude]);
 
+  const handleSetRiverId = useCallback(async () => {
+    if (waterType !== "river") return;
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      setRiverSnapStatus({ type: "error", message: "Please enter valid latitude and longitude values." });
+      return;
+    }
+
+    setIsResolvingRiverId(true);
+    setRiverSnapStatus({ type: "idle" });
+    setRiverId(null);
+    setRiverGeometry(null);
+
+    try {
+      const response = await fetch("/api/rivers/validate-or-snap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setRiverSnapStatus({ type: "error", message: "No associated river found (point is more than 500 m away)." });
+          return;
+        }
+        const errBody = await response.json().catch(() => ({}));
+        setRiverSnapStatus({ type: "error", message: (errBody as any)?.message ?? `Server error ${response.status}` });
+        return;
+      }
+
+      const json = await response.json();
+      const data = json?.data ?? json;
+
+      if (data.valid) {
+        const resolvedId = String(data.river_id ?? data.hyriv_id ?? "");
+        const dist: number = data.distance ?? 0;
+        
+        setRiverId(resolvedId);
+        setRiverGeometry(data.geometry);
+        setRiverSnapStatus({ type: "valid", riverId: resolvedId, distanceMeters: dist });
+        console.debug("[RiverSet] Valid river found", resolvedId, { dist });
+      } else {
+        setRiverSnapStatus({ type: "error", message: "Could not validate river data." });
+      }
+    } catch (error) {
+      console.error("[RiverSet] Failed to resolve riverId", error);
+      setRiverSnapStatus({ type: "error", message: "Unable to resolve river. Please try again." });
+    } finally {
+      setIsResolvingRiverId(false);
+    }
+  }, [waterType, latitude, longitude]);
+
   const handleAddMarker = async (e: React.FormEvent) => {
     e.preventDefault();
     let lat = parseFloat(latitude);
@@ -704,10 +847,21 @@ export function MyMap({
     }
 
     // For lakes, resolve lake_id explicitly via the Set button.
-    const resolvedLakeId = lakeId;
+    const resolvedLakeId = lakeId || (lakeSnapStatus.type === "inside" || lakeSnapStatus.type === "snapped" ? lakeSnapStatus.lakeId : null);
     if (waterType === "lake" && !resolvedLakeId) {
-      alert('Please press "Set" to resolve lake_id before saving.');
+      alert('Please press "Set Lake" to resolve lake_id before saving.');
       return;
+    }
+
+    const resolvedRiverId = riverId || (riverSnapStatus.type === "valid" ? riverSnapStatus.riverId : null);
+    if (waterType === "river" && !resolvedRiverId) {
+      alert('Please press "Set River" to resolve river_id before saving.');
+      return;
+    }
+    
+    // Explicitly update the riverId state to ensure it doesn't stay null if only resolved in status
+    if (resolvedRiverId && riverId !== resolvedRiverId) {
+      setRiverId(resolvedRiverId);
     }
 
     // Enforce minimum 20m distance between points (draft+submitted, using possibly snapped coordinates)
@@ -777,6 +931,7 @@ export function MyMap({
               longitude: lng,
               color: markerColor,
               lakeId: resolvedLakeId ?? marker.lakeId,
+              riverId: resolvedRiverId ?? marker.riverId,
               turbidity: turb,
               ph: phVal,
               temperature: tempVal,
@@ -798,6 +953,7 @@ export function MyMap({
          longitude: lng,
          color: markerColor,
          lakeId: resolvedLakeId ?? undefined,
+         riverId: resolvedRiverId ?? undefined,
          turbidity: turb,
          ph: phVal,
         temperature: tempVal,
@@ -832,7 +988,10 @@ export function MyMap({
     setIsEssentialModalOpen(false);
     setTempPin(null);
     setLakeId(null);
+    setRiverId(null);
+    setRiverGeometry(null);
     setLakeSnapStatus({ type: "idle" });
+    setRiverSnapStatus({ type: "idle" });
   };
 
   const handleRemoveMarker = (id: string) => {
@@ -862,6 +1021,8 @@ export function MyMap({
       setEssentialError(null);
       setIsEssentialModalOpen(false);
       setLakeId(null);
+      setRiverId(null);
+      setRiverGeometry(null);
       setObservedAt("");
       setObsDate("");
       setObsHour("");
@@ -881,7 +1042,10 @@ export function MyMap({
     setTemperature(marker.temperature != null ? marker.temperature.toString() : "");
     setBod(marker.bod != null ? marker.bod.toString() : "");
     setLakeId(marker.lakeId ?? null);
+    setRiverId(marker.riverId ?? null);
+    setRiverGeometry(null);
     setLakeSnapStatus({ type: "idle" });
+    setRiverSnapStatus({ type: "idle" });
 
     // Populate observed at picker
     if (marker.observedAt) {
@@ -958,7 +1122,10 @@ export function MyMap({
     setObsAmPm("AM");
     setSelectedAdditionalParams([]);
     setLakeId(null);
+    setRiverId(null);
+    setRiverGeometry(null);
     setLakeSnapStatus({ type: "idle" });
+    setRiverSnapStatus({ type: "idle" });
     setSelectedClusterPoint(null);
     setEssentialDraft({});
     setEssentialError(null);
@@ -994,7 +1161,10 @@ export function MyMap({
       setSelectedClusterPoint(null);
       // lake_id and status are reset when a new pin is placed
       setLakeId(null);
+      setRiverId(null);
+      setRiverGeometry(null);
       setLakeSnapStatus({ type: "idle" });
+      setRiverSnapStatus({ type: "idle" });
     },
     []
   );
@@ -1083,17 +1253,18 @@ export function MyMap({
           <MapClickHandler onMapClick={handleMapClick} />
           
           {waterType && <WaterTypeLayer key={waterType} waterType={waterType} showTiles={showTiles} />}
+          {waterType === "river" && riverGeometry && <HighlightedRiverLayer geometry={riverGeometry} />}
           {/* Submitted points only: clustered (backend data would go here). */}
-          {waterType === "lake" && showMarkers && (
+          {(waterType === "lake" || waterType === "river") && showMarkers && (
              <MapMVTClusterLayer
             tileUrl={WATER_TYPE_MARKER_TILE_URL[waterType ?? "lake"]}
             // Optional: colour circles by water quality index.
             // Remove wqiColorStops to use the flat clusterColor / pointColor instead.
             wqiColorStops={[
-              [40,  "#ef4444"],   // poor   — red
-              [65,  "#f59e0b"],   // fair   — amber
-              [85,  "#3b82f6"],   // good   — blue
-              [100, "#22c55e"],   // excellent — green
+              [40,  "#ef4444"],   // poor      — red
+              [65,  "#eab308"],   // moderate  — yellow/orange
+              [85,  "#22c55e"],   // good      — green
+              [100, "#06b6d4"],   // excellent — cyan/blue
             ]}
             onClusterClick={(coords, pointCount) => {
               void pointCount;
@@ -1115,6 +1286,7 @@ export function MyMap({
                 latitude:  exactLat,
                 longitude: exactLng,
                 lakeId:    properties.lake_id != null ? String(properties.lake_id) : undefined,
+                riverId:   properties.river_id != null ? String(properties.river_id) : undefined,
                 city_name: properties.city_name != null ? String(properties.city_name) : undefined,
                 state_name: properties.state_name != null ? String(properties.state_name) : undefined,
                 turbidity: 0,
@@ -1182,11 +1354,15 @@ export function MyMap({
                 onClose={() => {
                   setTempPin(null);
                   // If we were creating a new marker from this temp pin,
-                  // clear the coordinate and lake association when user closes it.
+                  // clear the coordinate and lake/river association when user closes it.
                   if (!editingMarkerId) {
                     setLatitude("");
                     setLongitude("");
                     setLakeId(null);
+                    setRiverId(null);
+                    setRiverGeometry(null);
+                    setLakeSnapStatus({ type: "idle" });
+                    setRiverSnapStatus({ type: "idle" });
                   }
                 }}
               >
@@ -1213,8 +1389,8 @@ export function MyMap({
   {[
     { color: "#ef4444", label: "Poor", range: "< 40" },
     { color: "#f59e0b", label: "Fair", range: "40 – 65" },
-    { color: "#3b82f6", label: "Good", range: "65 – 85" },
-    { color: "#22c55e", label: "Excellent", range: "85 – 100" },
+    { color: "#22c55e", label: "Good", range: "65 – 85" },
+    { color: "#3b82f6", label: "Excellent", range: "85 – 100" },
   ].map(({ color, label, range }) => (
     <div key={label} className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
@@ -1402,6 +1578,32 @@ export function MyMap({
               </div>
             )}
 
+            {waterType === "river" && (
+              <div className="space-y-1.5 pt-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSetRiverId}
+                    disabled={isResolvingRiverId || !latitude || !longitude}
+                  >
+                    {isResolvingRiverId ? "Checking..." : "Set River"}
+                  </Button>
+                  {riverSnapStatus.type === "idle" && !riverId && (
+                    <p className="text-xs text-muted-foreground">Click to validate against river data</p>
+                  )}
+                </div>
+                {riverSnapStatus.type === "valid" && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                    ✓ Nearest river ({riverSnapStatus.distanceMeters.toFixed(1)} m) — river_id: {riverId}
+                  </p>
+                )}
+                {riverSnapStatus.type === "error" && (
+                  <p className="text-xs text-destructive">{riverSnapStatus.message}</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Marker color</label>
               <div className="flex gap-2">
@@ -1485,6 +1687,30 @@ export function MyMap({
                 )}
                 {lakeSnapStatus.type === "error" && (
                   <p className="text-xs text-destructive">{lakeSnapStatus.message}</p>
+                )}
+              </div>
+            )}
+
+            {waterType === "river" && (
+              <div className="pt-2 border-t">
+                <p className="text-sm font-medium mb-1">River association</p>
+                {!riverId && riverSnapStatus.type === "idle" && (
+                  <p className="text-xs text-muted-foreground">
+                    Right-click on the map (or enter coordinates) then press "Set River" to resolve the river_id.
+                  </p>
+                )}
+                {riverSnapStatus.type === "valid" && (
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      ✓ Nearest river resolved ({riverSnapStatus.distanceMeters.toFixed(1)} m).
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      river_id: <span className="font-medium text-foreground">{riverId}</span>
+                    </p>
+                  </div>
+                )}
+                {riverSnapStatus.type === "error" && (
+                  <p className="text-xs text-destructive">{riverSnapStatus.message}</p>
                 )}
               </div>
             )}
@@ -1636,8 +1862,12 @@ export function MyMap({
   onProcessingChange?.(true);
 
   // ── Build the payload the backend expects ──────────────────────
+  const isRiver = waterType === "river";
   const markers = snapshot.map((m) => ({
-    lake_id:     m.lakeId != null ? Number(m.lakeId) : undefined,
+    ...(isRiver 
+      ? { river_id: m.riverId != null ? Number(m.riverId) : undefined }
+      : { lake_id:  m.lakeId != null ? Number(m.lakeId) : undefined }
+    ),
     lat:         m.latitude,
     lng:         m.longitude,
     parameters:  m.essentialParameters,           // already a flat { key: number } map
@@ -1645,7 +1875,11 @@ export function MyMap({
   }));
 
   try {
-    const res = await fetch("http://localhost:8000/api/lakes/submit", {
+    const endpoint = isRiver
+      ? "http://localhost:8000/api/rivers/submit"
+      : "http://localhost:8000/api/lakes/submit";
+
+    const res = await fetch(endpoint, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ markers }),
@@ -1978,7 +2212,11 @@ export function MyMap({
       )}
 
       {/* Point data card modal */}
-      <PointDataCard marker={markerHistoryPanelMarker} onClose={() => setMarkerHistoryPanelMarker(null)} />
+      <PointDataCard 
+        marker={markerHistoryPanelMarker} 
+        waterType={waterType}
+        onClose={() => setMarkerHistoryPanelMarker(null)} 
+      />
     </div>
   );
 }

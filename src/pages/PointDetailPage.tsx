@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, Map, Maximize2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Map } from "lucide-react";
 import type { Marker } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";
 import { PointChartsPanel } from "@/components/PointChartsPanel";
+import type { WaterType } from "@/types";
 
 interface StateWQI {
   state_id: number;
@@ -51,11 +52,16 @@ function getWqiStatus(wqi: number | null | undefined): {
 }
 
 function getWqiColor(wqi: number | null): { color: string; bgColor: string; label: string } {
-  if (wqi == null) return { color: "#6b7280", bgColor: "#f3f4f6", label: "Unknown" };
-  if (wqi < 40) return { color: "#ef4444", bgColor: "#fee2e2", label: "Poor" };
-  if (wqi < 65) return { color: "#f59e0b", bgColor: "#fef3c7", label: "Fair" };
-  if (wqi < 85) return { color: "#22c55e", bgColor: "#dcfce7", label: "Good" };
-  return { color: "#3b82f6", bgColor: "#dbeafe", label: "Excellent" };
+  if (wqi == null) return { color: "#6b7280", bgColor: "#6b728026", label: "Unknown" };
+  if (wqi < 40) return { color: "#ef4444", bgColor: "#ef444426", label: "Poor" };
+  if (wqi < 65) return { color: "#f59e0b", bgColor: "#f59e0b26", label: "Fair" };
+  if (wqi < 85) return { color: "#22c55e", bgColor: "#22c55e26", label: "Good" };
+  return { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
+}
+
+// Converts a state name to a file-safe slug: "Uttar Pradesh" → "uttar-pradesh"
+function toStateSlug(stateName: string): string {
+  return stateName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
 // WQI scale bar — mirrors AQI.in's gradient bar
@@ -298,11 +304,19 @@ export function PointDetailPage() {
   const [states, setStates] = useState<StateWQI[]>([]);
   const [statesLoading, setStatesLoading] = useState(true);
 
+  const [waterType, setWaterType] = useState<WaterType>("lake");
+
   useEffect(() => {
     if (!id) { setPageError("No point ID provided in URL"); return; }
     const storedMarker = sessionStorage.getItem(`point_${id}`);
     if (storedMarker) {
-      try { setMarker(JSON.parse(storedMarker)); setPageError(null); }
+      try { 
+        const parsed = JSON.parse(storedMarker);
+        setMarker(parsed); 
+        if (parsed.riverId && !parsed.lakeId) setWaterType("river");
+        else if (parsed.lakeId) setWaterType("lake");
+        setPageError(null); 
+      }
       catch (e) { setPageError(`Failed to parse point data: ${e instanceof Error ? e.message : String(e)}`); }
     } else {
       setPageError(`Point data not found in session.`);
@@ -310,23 +324,33 @@ export function PointDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (!marker?.lakeId) return;
+    const objectId = marker?.lakeId || marker?.riverId;
+    if (!objectId) return;
+
     setLoading(true); setError(null);
-    fetch(`/api/lakes/marker-history?lake_id=${encodeURIComponent(marker.lakeId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=1000&offset=0`)
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+    
+    fetch(`/api/${route}/marker-history?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=1000&offset=0`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((json) => setHistoryEntries(json?.data?.results ?? []))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load history"))
       .finally(() => setLoading(false));
-  }, [marker]);
+  }, [marker, waterType]);
 
   useEffect(() => {
-    if (!marker?.lakeId) return;
-    fetch(`/api/lakes/marker-years?lake_id=${encodeURIComponent(marker.lakeId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
+    const objectId = marker?.lakeId || marker?.riverId;
+    if (!objectId) return;
+
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+
+    fetch(`/api/${route}/marker-years?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
       .then((r) => r.ok ? r.json() : Promise.reject("Failed to fetch years"))
       .then((json) => {
         const years: number[] = json?.data?.length ? json.data : [new Date().getFullYear()];
         return Promise.all(years.map((year) =>
-          fetch(`/api/lakes/marker-chart?lake_id=${encodeURIComponent(marker.lakeId || "")}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`)
+          fetch(`/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId || "")}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`)
             .then((r) => r.ok ? r.json() : null).catch(() => null)
             .then((json) => ({ year, data: json?.data?.wqi ?? [] }))
         ));
@@ -338,10 +362,11 @@ export function PointDetailPage() {
         if (final.length > 0) setSelectedYear(final[0].year);
       })
       .catch(console.error);
-  }, [marker]);
+  }, [marker, waterType]);
 
   useEffect(() => {
-    fetch("/api/lakes/states/wqi")
+    const route = waterType === "river" ? "rivers" : "lakes";
+    fetch(`/api/${route}/states/wqi`)
       .then((r) => r.ok ? r.json() : Promise.reject("Failed to fetch states"))
       .then((json) => {
         setStates(json?.data ?? []);
@@ -351,7 +376,7 @@ export function PointDetailPage() {
         console.error("Error fetching states:", err);
         setStatesLoading(false);
       });
-  }, []);
+  }, [waterType]);
 
   const latestEntry = historyEntries[0] ?? null;
 
@@ -377,13 +402,9 @@ export function PointDetailPage() {
 
   // Key parameter icons mapping
   const paramIcons: Record<string, string> = {
-    "pH": "⚗️", "Turbidity": "🌊", "DO": "💧", "BOD": "🧪",
+    "pH": "🔴🔵", "Turbidity": "🌫️", "DO": "💧", "BOD": "🧪",
     "TDS": "🔬", "Nitrates": "🌿", "Coliform": "🦠", "Temperature": "🌡️",
   };
-
-  // bg changes subtly based on status
-  const bgFrom = wqiStatus.dotColor + "18";
-  const bgAccent = wqiStatus.dotColor + "0a";
 
   return (
     <div className="min-h-screen relative overflow-x-hidden" style={{
@@ -418,17 +439,29 @@ export function PointDetailPage() {
             {marker.state_name && (
               <>
                 <span className="text-gray-600">/</span>
-                <span className="text-gray-400">{marker.state_name}</span>
+                <button
+                  onClick={() => navigate(`/dashboard/india/${marker.state_name!.toLowerCase().replace(/\\s+/g, '-')}`)}
+                  className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+                >
+                  {marker.state_name}
+                </button>
               </>
             )}
-            {marker.city_name && (
+            {marker.city_name && marker.state_name && (
               <>
                 <span className="text-gray-600">/</span>
-                <span className="text-gray-400">{marker.city_name}</span>
+                <button
+                  onClick={() => navigate(`/dashboard/india/${marker.state_name!.toLowerCase().replace(/\\s+/g, '-')}/${marker.city_name!.toLowerCase().replace(/\\s+/g, '-')}`)}
+                  className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+                >
+                  {marker.city_name}
+                </button>
               </>
             )}
             <span className="text-gray-600">/</span>
-            <span className="text-white font-medium">Lake {marker.lakeId}</span>
+            <span className="text-white font-medium">
+              {waterType === "river" ? "River " : "Lake "} {marker.riverId || marker.lakeId}
+            </span>
           </div>
         </div>
       </div>
@@ -448,7 +481,7 @@ export function PointDetailPage() {
             <div className="flex flex-col gap-2 px-4 py-2 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center gap-2">
                 <span style={{ color: wqiStatus.dotColor }}>⬡</span>
-                <span className="text-white font-bold">Lake {marker.lakeId}</span>
+                <span className="text-white font-bold">{waterType === "river" ? "River " : "Lake "} {marker.riverId || marker.lakeId}</span>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-400 text-xs font-mono">{marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}</span>
               </div>
@@ -673,7 +706,7 @@ export function PointDetailPage() {
           <div className="flex-shrink-0 w-full lg:w-80 flex flex-col gap-3">
             {/* Map Card — terrain style matching dashboard */}
             <button
-              onClick={() => navigate(`/map/lake?lat=${marker.latitude}&lng=${marker.longitude}&zoom=15`)}
+              onClick={() => navigate(`/map/${waterType === "river" ? "river" : "lake"}?lat=${marker.latitude}&lng=${marker.longitude}&zoom=15`)}
               className="group w-full rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02]"
               style={{
                 background: "#111827",
@@ -835,6 +868,8 @@ export function PointDetailPage() {
               year={selectedYear}
               onYearChange={setSelectedYear}
               lakeId={marker.lakeId ?? null}
+              riverId={marker.riverId ?? null}
+              waterType={waterType}
               lat={marker.latitude}
               lng={marker.longitude}
             />
@@ -940,89 +975,234 @@ export function PointDetailPage() {
           </div>
         )}
 
-        {/* States WQI Section */}
-        <div ref={statesRef} className="py-12">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold mb-2" style={{ color: "#ffffff" }}>
-              India's States
-            </h2>
-            <p className="text-slate-400 text-lg">
-              Average Water Quality Index
-            </p>
-          </div>
+        {/* States WQI Section (Only for Lakes) */}
+        {waterType === "lake" && (
+          <div ref={statesRef} className="py-12">
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold mb-2" style={{ color: "#ffffff" }}>
+                India's States
+              </h2>
+              <p className="text-slate-400 text-lg">
+                Average Water Quality Index
+              </p>
+            </div>
 
-          {/* Scrollable states grid */}
-          {!statesLoading && states.length > 0 ? (
-            <div className="overflow-x-auto pb-4 scrollbar-hide">
-              <div className="flex gap-4 min-w-min">
-                {states.map((state) => {
-                  const wqiStatusColor = getWqiColor(state.avg_wqi);
-                  const statePath = state.state_name.toLowerCase().replace(/\s+/g, "-");
-                  return (
-                    <div
-                      key={state.state_id}
-                      onClick={() => navigate(`/dashboard/india/${statePath}`)}
-                      className="flex-shrink-0 rounded-2xl p-6 w-72 cursor-pointer group transition-all duration-300 hover:scale-105 hover:shadow-2xl"
-                      style={{
-                        background: "linear-gradient(135deg, #0c1825 0%, #0f2035 100%)",
-                        border: `1.5px solid ${wqiStatusColor.color}40`,
-                        boxShadow: `0 0 0 1px ${wqiStatusColor.color}20, 0 8px 32px rgba(0,0,0,0.4)`,
-                      }}
-                    >
-                      {/* Top accent bar */}
-                      <div className="h-1 w-12 rounded-full mb-4" style={{ background: wqiStatusColor.color }} />
+            {/* Scrollable states grid */}
+            {!statesLoading && states.length > 0 ? (
+              <div className="overflow-x-auto pb-4 scrollbar-hide">
+                <div style={{
+                  display: "grid",
+                  gridTemplateRows: "1fr 1fr",
+                  gridAutoFlow: "column",
+                  gridAutoColumns: 240,
+                  gap: 16,
+                  padding: "18px 4px 12px",
+                  width: "max-content",
+                }}>
+                  {states.map((state) => {
+                    const wqiStatus = getWqiColor(state.avg_wqi);
+                    const statePath = state.state_name.toLowerCase().replace(/\s+/g, "-");
+                    const slug = toStateSlug(state.state_name);
+                    const imgUrl = `/states/${slug}.png`;
+                    return (
+                      <div
+                        key={state.state_id}
+                        onClick={() => {
+                          window.scrollTo(0, 0);
+                          navigate(`/dashboard/india/${statePath}`);
+                        }}
+                        className="state-card transition-all duration-300 cursor-pointer"
+                        style={{
+                          borderRadius: 18,
+                          overflow: "hidden",
+                          position: "relative",
+                          height: 220,
+                          border: `1px solid ${wqiStatus.color}30`,
+                          boxShadow: `0 4px 24px rgba(0,0,0,0.5)`,
+                        }}
+                        onMouseEnter={e => {
+                          const el = e.currentTarget as HTMLDivElement;
+                          el.style.transform = "translateY(-4px) scale(1.02)";
+                          el.style.borderColor = wqiStatus.color + "80";
+                          el.style.boxShadow = `0 16px 48px rgba(0,0,0,0.7), 0 0 28px ${wqiStatus.color}30`;
+                          const img = el.querySelector(".card-bg-img") as HTMLElement;
+                          if (img) img.style.transform = "scale(1.08)";
+                          const overlay = el.querySelector(".card-overlay") as HTMLElement;
+                          if (overlay) overlay.style.background = `linear-gradient(to top, rgba(5,10,20,0.96) 0%, rgba(5,10,20,0.6) 50%, rgba(5,10,20,0.3) 100%)`;
+                        }}
+                        onMouseLeave={e => {
+                          const el = e.currentTarget as HTMLDivElement;
+                          el.style.transform = "";
+                          el.style.borderColor = wqiStatus.color + "30";
+                          el.style.boxShadow = `0 4px 24px rgba(0,0,0,0.5)`;
+                          const img = el.querySelector(".card-bg-img") as HTMLElement;
+                          if (img) img.style.transform = "scale(1)";
+                          const overlay = el.querySelector(".card-overlay") as HTMLElement;
+                          if (overlay) overlay.style.background = `linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.55) 55%, rgba(5,10,20,0.18) 100%)`;
+                        }}
+                      >
+                        {/* Background photo */}
+                        <img
+                          className="card-bg-img"
+                          src={imgUrl}
+                          alt={state.state_name}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            objectPosition: "center",
+                            transition: "transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                          }}
+                          onError={e => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                            const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
 
-                      {/* State name and link icon */}
-                      <div className="flex items-start justify-between mb-4">
-                        <h3 className="text-2xl font-bold text-white truncate">{state.state_name}</h3>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path d="M3 13h10V3H9" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M10 2l3 3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-
-                      {/* WQI Score */}
-                      <div className="mb-6">
-                        <div className="text-5xl font-bold mb-1" style={{ color: wqiStatusColor.color }}>
-                          {state.avg_wqi ? Number(state.avg_wqi).toFixed(0) : "—"}
+                        {/* Fallback background if no image */}
+                        <div style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "none",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: `linear-gradient(135deg, ${wqiStatus.color}18 0%, #0d1520 100%)`,
+                        }}>
+                          <svg width="56" height="56" viewBox="0 0 56 56" fill="none" opacity="0.25">
+                            <path d="M28 8C17 8 8 17 8 28s9 20 20 20 20-9 20-20S39 8 28 8z" stroke={wqiStatus.color} strokeWidth="1.5"/>
+                            <path d="M16 28 Q28 14 40 28 Q28 42 16 28z" stroke={wqiStatus.color} strokeWidth="1.2" fill="none"/>
+                          </svg>
                         </div>
+
+                        {/* Gradient overlay */}
                         <div
-                          className="text-xs font-bold px-2 py-1 rounded w-fit"
-                          style={{ background: wqiStatusColor.bgColor, color: wqiStatusColor.color }}
-                        >
-                          {wqiStatusColor.label}
+                          className="card-overlay"
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: `linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.55) 55%, rgba(5,10,20,0.18) 100%)`,
+                            transition: "background 0.3s ease",
+                          }}
+                        />
+
+                        {/* WQI status badge — top right */}
+                        <div style={{
+                          position: "absolute",
+                          top: 12,
+                          right: 12,
+                          background: `${wqiStatus.color}22`,
+                          border: `1px solid ${wqiStatus.color}55`,
+                          borderRadius: 20,
+                          padding: "3px 10px",
+                          backdropFilter: "blur(8px)",
+                          WebkitBackdropFilter: "blur(8px)",
+                        }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: wqiStatus.color, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                            {wqiStatus.label}
+                          </span>
+                        </div>
+
+                        {/* Text content — bottom */}
+                        <div style={{
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          padding: "16px 16px 14px",
+                        }}>
+                          {/* State name */}
+                          <div style={{
+                            fontSize: 15,
+                            fontWeight: 700,
+                            color: "#ffffff",
+                            letterSpacing: "0.01em",
+                            marginBottom: 6,
+                            textShadow: "0 1px 8px rgba(0,0,0,0.8)",
+                            lineHeight: 1.2,
+                          }}>
+                            {state.state_name}
+                          </div>
+
+                          {/* WQI value + coords row */}
+                          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                            {/* WQI big number */}
+                            <div>
+                              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 1, letterSpacing: "0.08em", textTransform: "uppercase" }}>Avg WQI</div>
+                              <div style={{
+                                fontSize: 36,
+                                fontWeight: 800,
+                                color: wqiStatus.color,
+                                lineHeight: 1,
+                                textShadow: `0 0 20px ${wqiStatus.color}60`,
+                              }}>
+                                {state.avg_wqi ? Number(state.avg_wqi).toFixed(0) : "—"}
+                              </div>
+                            </div>
+
+                            {/* Lat/Lng */}
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+                                <div>
+                                  <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginBottom: 1, letterSpacing: "0.06em" }}>LAT</div>
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>{state.lat?.toFixed(2) ?? "—"}</div>
+                                </div>
+                                <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)" }} />
+                                <div>
+                                  <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginBottom: 1, letterSpacing: "0.06em" }}>LNG</div>
+                                  <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>{state.lng?.toFixed(2) ?? "—"}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Bottom color bar */}
+                          <div style={{
+                            marginTop: 10,
+                            height: 2,
+                            borderRadius: 2,
+                            background: `linear-gradient(90deg, ${wqiStatus.color}, ${wqiStatus.color}30)`,
+                            opacity: 0.7,
+                          }} />
+                        </div>
+
+                        {/* Arrow icon — top left */}
+                        <div style={{
+                          position: "absolute",
+                          top: 12,
+                          left: 12,
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.1)",
+                          backdropFilter: "blur(6px)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path d="M3 11h8V3H7" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M8 2l3 3" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
                         </div>
                       </div>
-
-                      {/* Divider */}
-                      <div style={{ height: "1px", background: `${wqiStatusColor.color}20`, marginBottom: "1rem" }} />
-
-                      {/* Coordinates */}
-                      <div className="text-xs text-slate-400">
-                        <div className="flex justify-between">
-                          <span>Lat</span>
-                          <span className="font-mono">{state.lat ? state.lat.toFixed(2) : "—"}</span>
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <span>Lng</span>
-                          <span className="font-mono">{state.lng ? state.lng.toFixed(2) : "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : statesLoading ? (
-            <div className="flex items-center justify-center h-40">
-              <div className="text-slate-400">Loading states...</div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-40">
-              <div className="text-slate-400">No state data available</div>
-            </div>
-          )}
-        </div>
+            ) : statesLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <div className="text-slate-400">Loading states...</div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-40">
+                <div className="text-slate-400">No state data available</div>
+              </div>
+            )}
+          </div>
+        )}
 
         <style>{`
           .scrollbar-hide {
@@ -1031,6 +1211,14 @@ export function PointDetailPage() {
           }
           .scrollbar-hide::-webkit-scrollbar {
             display: none;
+          }
+          .state-card {
+            transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                        box-shadow 0.35s ease,
+                        border-color 0.35s ease;
+          }
+          .card-bg-img {
+            transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
           }
         `}</style>
       </div>

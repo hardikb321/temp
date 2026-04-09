@@ -159,7 +159,7 @@ export function MapPage() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
-      <Navbar onRejectedSessionResubmit={handleResubmitRejectedSession} />
+      <Navbar onRejectedSessionResubmit={handleResubmitRejectedSession} waterType={activeWaterType} />
 
       <div className="flex-1 overflow-hidden relative flex">
         {/* Map Container */}

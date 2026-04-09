@@ -18,6 +18,8 @@ interface PointChartsPanelProps {
   year: number | null;
   onYearChange: (year: number) => void;
   lakeId: string | null;
+  riverId?: string | null;
+  waterType?: "lake" | "river" | string;
   lat: number;
   lng: number;
 }
@@ -41,6 +43,8 @@ export function PointChartsPanel({
   year,
   onYearChange,
   lakeId,
+  riverId,
+  waterType = "lake",
   lat,
   lng,
 }: PointChartsPanelProps) {
@@ -60,12 +64,16 @@ export function PointChartsPanel({
 
   // Fetch when year / marker changes
   useEffect(() => {
-    if (!lakeId) return;
+    const objectId = waterType === "river" ? riverId : lakeId;
+    if (!objectId) return;
     setLoading(true);
     setError(null);
 
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+
     fetch(
-      `/api/lakes/marker-chart?lake_id=${encodeURIComponent(lakeId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`
+      `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`
     )
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -82,7 +90,7 @@ export function PointChartsPanel({
         setParametersData({});
       })
       .finally(() => setLoading(false));
-  }, [lakeId, lat, lng, selectedYear]);
+  }, [lakeId, riverId, waterType, lat, lng, selectedYear]);
 
   // WQI values (sparse)
   const wqiChartValues = useMemo(() => {

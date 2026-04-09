@@ -19,7 +19,74 @@ function getWqiColor(wqi: number | null) {
   return           { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
 }
 
+// Converts a state name to a file-safe slug: "Uttar Pradesh" → "uttar-pradesh"
+function toStateSlug(stateName: string): string {
+  return stateName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
+
+// Loads the state's SVG map from /src/assets/states/<slug>.svg
+// Falls back to a "Not Available" placeholder if the file doesn't exist or fails to load
+function StateMapSVG({ stateName, color }: { stateName: string; color: string }) {
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+  const slug = toStateSlug(stateName);
+  // PNGs live in public/states/<slug>.png — Vite serves /public directly as root
+  const svgUrl = `/states/${slug}.png`;
+
+  return (
+    <div style={{ width: 120, height: 100, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+      {/* Hidden img to detect load/error — we use an <img> for detection, then show as object */}
+      <img
+        src={svgUrl}
+        alt={stateName}
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("error")}
+        style={{
+          width: 110,
+          height: 90,
+          objectFit: "contain",
+          display: status === "loaded" ? "block" : "none",
+          filter: `drop-shadow(0 0 6px ${color}44)`,
+          opacity: 0.9,
+        }}
+      />
+
+      {/* Loading shimmer */}
+      {status === "loading" && (
+        <div style={{
+          width: 90, height: 76,
+          borderRadius: 8,
+          background: `linear-gradient(90deg, ${color}08 25%, ${color}18 50%, ${color}08 75%)`,
+          backgroundSize: "200% 100%",
+          animation: "shimmer 1.4s infinite",
+        }} />
+      )}
+
+      {/* Not available fallback */}
+      {status === "error" && (
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 5,
+          opacity: 0.45,
+        }}>
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect x="2" y="2" width="28" height="28" rx="6" stroke={color} strokeWidth="1.5" strokeDasharray="4 3"/>
+            <line x1="8" y1="8" x2="24" y2="24" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+            <line x1="24" y1="8" x2="8" y2="24" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span style={{ fontSize: 9, color, letterSpacing: "0.06em", fontWeight: 600, textTransform: "uppercase" }}>
+            Not Available
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Large detailed architectural SVG illustrations (outline/line-art style like AQI.in)
+// KEPT as fallback — no longer used in cards, but preserved for reference
 function StateLandmarkIllustration({ stateName, color }: { stateName: string; color: string }) {
   const name = stateName.toLowerCase();
   const c = color;
@@ -428,9 +495,9 @@ export function Dashboard() {
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="mb-14">
             <h1 className="text-5xl md:text-6xl font-extrabold mb-4 tracking-tight" style={{ color: "#ffffff" }}>
-              Water Quality{" "}
+              Varuna{" "}
               <span style={{ background: "linear-gradient(90deg, #1e90ff, #00e5ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                Monitor
+                Dhrishti
               </span>
             </h1>
             <p className="text-lg text-slate-400 max-w-xl leading-relaxed">
@@ -485,54 +552,78 @@ export function Dashboard() {
             <div className="flex-shrink-0 w-full lg:w-80">
               <button onClick={() => navigate("/map/lake")}
                 className="group w-full rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02]"
-                style={{ background: "#111827", border: "1.5px solid #1e90ff", boxShadow: "0 0 0 4px rgba(30,144,255,0.12), 0 8px 40px rgba(0,0,0,0.7), 0 0 50px rgba(30,144,255,0.3)" }}>
-                <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(30,144,255,0.08)", borderBottom: "1px solid rgba(30,144,255,0.2)" }}>
+                style={{ background: "#111827", border: "1.5px solid #1e90ff", boxShadow: "0 0 0 4px rgba(30,144,255,0.08), 0 8px 40px rgba(0,0,0,0.7), 0 0 50px rgba(30,144,255,0.18)" }}>
+                
+                {/* Blue accent top bar */}
+                <div className="flex items-center justify-between px-4 py-2.5"
+                  style={{ background: "rgba(30,144,255,0.08)", borderBottom: "1px solid rgba(30,144,255,0.2)" }}>
                   <div className="flex items-center gap-2">
                     <Map className="w-3.5 h-3.5" style={{ color: "#60a5fa" }} />
                     <span className="text-sm font-bold" style={{ color: "#60a5fa" }}>WQI Map</span>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                    style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.35)", color: "#4ade80" }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block"></span>
-                    Live
+                  <div className="flex items-center gap-1.5 text-xs" style={{ color: "#94a3b8" }}>
+                    <span className="w-2 h-2 rounded-full ring-1 ring-white/20" style={{ background: "#1e90ff", boxShadow: "0 0 6px #1e90ff" }} />
+                    Live Data
                   </div>
                 </div>
-                <div className="relative overflow-hidden" style={{ height: 210 }}>
-                  <svg className="w-full h-full" viewBox="0 0 320 210" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="320" height="210" fill="#0f172a"/>
-                    <path d="M60 30 Q120 20 180 35 Q240 50 280 30 L280 130 Q240 110 180 120 Q120 130 60 115 Z" fill="#1e293b" opacity="0.6"/>
-                    <path d="M0 80 Q50 70 100 85 Q150 100 200 80 Q250 60 320 75 L320 160 Q270 145 220 160 Q170 175 120 160 Q70 145 0 155 Z" fill="#1e3a5f" opacity="0.4"/>
-                    <circle cx="130" cy="85" r="12" fill="#f59e0b" opacity="0.85"/><text x="130" y="89" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">62</text>
-                    <circle cx="170" cy="92" r="11" fill="#f59e0b" opacity="0.85"/><text x="170" y="96" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">73</text>
-                    <circle cx="220" cy="78" r="10" fill="#22c55e" opacity="0.85"/><text x="220" y="82" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">88</text>
-                    <circle cx="260" cy="95" r="8" fill="#3b82f6" opacity="0.85"/><text x="260" y="99" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">91</text>
-                    <circle cx="90" cy="145" r="8" fill="#ef4444" opacity="0.75"/><text x="90" y="149" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">38</text>
-                    <circle cx="200" cy="135" r="9" fill="#22c55e" opacity="0.75"/><text x="200" y="139" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold">82</text>
-                    <rect x="0" y="188" width="320" height="22" fill="rgba(15,23,42,0.72)"/>
-                    <circle cx="14" cy="199" r="4" fill="#ef4444"/><text x="22" y="203" fill="#cbd5e1" fontSize="7">Poor</text>
-                    <circle cx="55" cy="199" r="4" fill="#eab308"/><text x="63" y="203" fill="#cbd5e1" fontSize="7">Fair</text>
-                    <circle cx="93" cy="199" r="4" fill="#22c55e"/><text x="101" y="203" fill="#cbd5e1" fontSize="7">Good</text>
-                    <circle cx="136" cy="199" r="4" fill="#3b82f6"/><text x="144" y="203" fill="#cbd5e1" fontSize="7">Excellent</text>
+
+                {/* Terrain map SVG */}
+                <div className="relative overflow-hidden" style={{ height: 220 }}>
+                  <svg className="w-full h-full" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="320" height="220" fill="#c8d8a0" />
+                    <rect x="0" y="0" width="100" height="80" fill="#b5cc8a" />
+                    <rect x="100" y="0" width="120" height="60" fill="#cddca0" />
+                    <rect x="220" y="0" width="100" height="90" fill="#bfd090" />
+                    <rect x="0" y="80" width="80" height="80" fill="#d4e4a8" />
+                    <rect x="150" y="80" width="90" height="70" fill="#c2d695" />
+                    <rect x="240" y="90" width="80" height="80" fill="#b8cc82" />
+                    <rect x="0" y="160" width="130" height="60" fill="#c5d898" />
+                    <rect x="200" y="150" width="120" height="70" fill="#cce0a2" />
+                    {/* Roads */}
+                    <line x1="0" y1="110" x2="320" y2="110" stroke="#f5e6c8" strokeWidth="3" />
+                    <line x1="160" y1="0" x2="160" y2="220" stroke="#f5e6c8" strokeWidth="2" />
+                    <line x1="80" y1="0" x2="60" y2="220" stroke="#ede0c0" strokeWidth="1.5" opacity="0.7" />
+                    <line x1="240" y1="0" x2="260" y2="220" stroke="#ede0c0" strokeWidth="1.5" opacity="0.7" />
+                    {/* Water */}
+                    <path d="M 30 90 Q 70 75 110 95 Q 140 108 160 100 Q 185 90 200 105 Q 220 118 250 108 Q 270 100 300 112" stroke="#5aabdc" strokeWidth="6" fill="none" strokeLinecap="round" opacity="0.85" />
+                    <ellipse cx="75" cy="155" rx="28" ry="16" fill="#7ec8e3" opacity="0.8" />
+                    <ellipse cx="255" cy="65" rx="22" ry="12" fill="#7ec8e3" opacity="0.7" />
+                    {/* Urban blocks */}
+                    <rect x="130" y="90" width="60" height="40" fill="#ddd6c0" opacity="0.6" rx="2" />
+                    <rect x="50" y="120" width="40" height="30" fill="#ddd6c0" opacity="0.5" rx="2" />
+                    {/* Center marker */}
+                    <circle cx="160" cy="110" r="18" fill="#1e90ff" opacity="0.2" />
+                    <circle cx="160" cy="110" r="13" fill="#1e90ff" />
+                    <circle cx="160" cy="110" r="13" fill="none" stroke="white" strokeWidth="2.5" />
+                    <text x="160" y="114" textAnchor="middle" fill="white" fontSize="8" fontWeight="bold" fontFamily="system-ui,sans-serif">
+                      MAP
+                    </text>
+                    {/* Legend bar */}
+                    <rect x="0" y="198" width="320" height="22" fill="rgba(15,23,42,0.75)" />
+                    <circle cx="14" cy="209" r="4" fill="#ef4444" /><text x="22" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
+                    <circle cx="55" cy="209" r="4" fill="#eab308" /><text x="63" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Fair</text>
+                    <circle cx="95" cy="209" r="4" fill="#22c55e" /><text x="103" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
+                    <circle cx="140" cy="209" r="4" fill="#3b82f6" /><text x="148" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
                   </svg>
                 </div>
-                <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(30,144,255,0.05), rgba(30,144,255,0.4), rgba(30,144,255,0.05))" }}/>
-                <div className="flex items-center justify-between px-5 py-4" style={{ background: "rgba(30,144,255,0.07)" }}>
+
+                {/* Blue gradient divider */}
+                <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(30,144,255,0.05), rgba(30,144,255,0.4), rgba(30,144,255,0.05))" }} />
+
+                {/* Footer */}
+                <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(30,144,255,0.06)" }}>
                   <div>
                     <div className="text-sm font-bold text-white">Open Full Map</div>
-                    <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>View all monitoring points</div>
+                    <div className="text-xs mt-0.5" style={{ color: "#64748b" }}>All monitoring points</div>
                   </div>
                   <div className="flex items-center justify-center rounded-full group-hover:translate-x-0.5 transition-transform duration-200"
-                    style={{ background: "#1e90ff", width: 34, height: 34 }}>
+                    style={{ background: "#1e90ff", width: 32, height: 32 }}>
                     <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                      <path d="M3 7h8M7 3l4 4-4 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M3 7h8M7 3l4 4-4 4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </div>
                 </div>
               </button>
-              <div className="mt-3 flex items-center gap-1.5 text-slate-500 text-xs px-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="10" r="3" stroke="#64748b" strokeWidth="2"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="#64748b" strokeWidth="2"/></svg>
-                India · MP Region
-              </div>
             </div>
           </div>
         </div>
@@ -552,90 +643,198 @@ export function Dashboard() {
                 display: "grid",
                 gridTemplateRows: "1fr 1fr",
                 gridAutoFlow: "column",
-                gridAutoColumns: 260,
-                gap: 14,
-                padding: "18px 4px 8px",
+                gridAutoColumns: 240,
+                gap: 16,
+                padding: "18px 4px 12px",
                 width: "max-content",
               }}>
                 {states.map((state) => {
                   const wqiStatus = getWqiColor(state.avg_wqi);
                   const statePath = state.state_name.toLowerCase().replace(/\s+/g, "-");
+                  const slug = toStateSlug(state.state_name);
+                  const imgUrl = `/states/${slug}.png`;
                   return (
                     <div
                       key={state.state_id}
-                      onClick={() => navigate(`/dashboard/india/${statePath}`)}
-                      className="transition-all duration-300 cursor-pointer"
+                      onClick={() => {
+                        window.scrollTo(0, 0);
+                        navigate(`/dashboard/india/${statePath}`);
+                      }}
+                      className="state-card transition-all duration-300 cursor-pointer"
                       style={{
-                        background: "#131c2e",
-                        border: `1px solid ${wqiStatus.color}28`,
-                        borderRadius: 16,
+                        borderRadius: 18,
                         overflow: "hidden",
-                        display: "flex",
-                        flexDirection: "column",
+                        position: "relative",
+                        height: 220,
+                        border: `1px solid ${wqiStatus.color}30`,
+                        boxShadow: `0 4px 24px rgba(0,0,0,0.5)`,
                       }}
                       onMouseEnter={e => {
                         const el = e.currentTarget as HTMLDivElement;
-                        el.style.borderColor = wqiStatus.color + "66";
-                        el.style.transform = "translateY(-3px)";
-                        el.style.boxShadow = `0 12px 40px rgba(0,0,0,0.6), 0 0 20px ${wqiStatus.color}18`;
+                        el.style.transform = "translateY(-4px) scale(1.02)";
+                        el.style.borderColor = wqiStatus.color + "80";
+                        el.style.boxShadow = `0 16px 48px rgba(0,0,0,0.7), 0 0 28px ${wqiStatus.color}30`;
+                        const img = el.querySelector(".card-bg-img") as HTMLElement;
+                        if (img) img.style.transform = "scale(1.08)";
+                        const overlay = el.querySelector(".card-overlay") as HTMLElement;
+                        if (overlay) overlay.style.background = `linear-gradient(to top, rgba(5,10,20,0.96) 0%, rgba(5,10,20,0.6) 50%, rgba(5,10,20,0.3) 100%)`;
                       }}
                       onMouseLeave={e => {
                         const el = e.currentTarget as HTMLDivElement;
-                        el.style.borderColor = wqiStatus.color + "28";
                         el.style.transform = "";
-                        el.style.boxShadow = "";
+                        el.style.borderColor = wqiStatus.color + "30";
+                        el.style.boxShadow = `0 4px 24px rgba(0,0,0,0.5)`;
+                        const img = el.querySelector(".card-bg-img") as HTMLElement;
+                        if (img) img.style.transform = "scale(1)";
+                        const overlay = el.querySelector(".card-overlay") as HTMLElement;
+                        if (overlay) overlay.style.background = `linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.55) 55%, rgba(5,10,20,0.18) 100%)`;
                       }}
                     >
-                      {/* Illustration area — large, fills top of card */}
-                      <div style={{
-                        background: `linear-gradient(160deg, ${wqiStatus.color}0e 0%, #0d1520 100%)`,
-                        display: "flex",
-                        alignItems: "flex-end",
-                        justifyContent: "center",
-                        height: 108,
-                        padding: "8px 8px 0",
-                        borderBottom: `1px solid ${wqiStatus.color}18`,
-                        position: "relative",
-                        overflow: "hidden",
-                      }}>
-                        {/* Subtle radial glow behind illustration */}
-                        <div style={{
+                      {/* Background photo */}
+                      <img
+                        className="card-bg-img"
+                        src={imgUrl}
+                        alt={state.state_name}
+                        style={{
                           position: "absolute",
-                          bottom: -24,
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          width: 140,
-                          height: 70,
-                          borderRadius: "50%",
-                          background: `radial-gradient(ellipse, ${wqiStatus.color}1a 0%, transparent 70%)`,
-                          pointerEvents: "none",
-                        }}/>
-                        <StateLandmarkIllustration stateName={state.state_name} color={wqiStatus.color} />
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          objectPosition: "center",
+                          transition: "transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                        }}
+                        onError={e => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none";
+                          const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+
+                      {/* Fallback background if no image */}
+                      <div style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "none",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: `linear-gradient(135deg, ${wqiStatus.color}18 0%, #0d1520 100%)`,
+                      }}>
+                        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" opacity="0.25">
+                          <path d="M28 8C17 8 8 17 8 28s9 20 20 20 20-9 20-20S39 8 28 8z" stroke={wqiStatus.color} strokeWidth="1.5"/>
+                          <path d="M16 28 Q28 14 40 28 Q28 42 16 28z" stroke={wqiStatus.color} strokeWidth="1.2" fill="none"/>
+                        </svg>
                       </div>
 
-                      {/* Info area */}
-                      <div style={{ padding: "12px 16px 14px" }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 3 }}>
-                          <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0", lineHeight: 1.3 }}>{state.state_name}</span>
-                          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.35, marginTop: 1, flexShrink: 0 }}>
-                            <path d="M3 13h10V3H9" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M10 2l3 3" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                      {/* Gradient overlay */}
+                      <div
+                        className="card-overlay"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background: `linear-gradient(to top, rgba(5,10,20,0.92) 0%, rgba(5,10,20,0.55) 55%, rgba(5,10,20,0.18) 100%)`,
+                          transition: "background 0.3s ease",
+                        }}
+                      />
+
+                      {/* WQI status badge — top right */}
+                      <div style={{
+                        position: "absolute",
+                        top: 12,
+                        right: 12,
+                        background: `${wqiStatus.color}22`,
+                        border: `1px solid ${wqiStatus.color}55`,
+                        borderRadius: 20,
+                        padding: "3px 10px",
+                        backdropFilter: "blur(8px)",
+                        WebkitBackdropFilter: "blur(8px)",
+                      }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: wqiStatus.color, letterSpacing: "0.07em", textTransform: "uppercase" }}>
+                          {wqiStatus.label}
+                        </span>
+                      </div>
+
+                      {/* Text content — bottom */}
+                      <div style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        padding: "16px 16px 14px",
+                      }}>
+                        {/* State name */}
+                        <div style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: "#ffffff",
+                          letterSpacing: "0.01em",
+                          marginBottom: 6,
+                          textShadow: "0 1px 8px rgba(0,0,0,0.8)",
+                          lineHeight: 1.2,
+                        }}>
+                          {state.state_name}
                         </div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: wqiStatus.color, lineHeight: 1.1, marginBottom: 10 }}>
-                          {state.avg_wqi ? Number(state.avg_wqi).toFixed(0) : "—"}
-                        </div>
-                        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+
+                        {/* WQI value + coords row */}
+                        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+                          {/* WQI big number */}
                           <div>
-                            <div style={{ fontSize: 10, color: "#64748b", marginBottom: 1 }}>Lat</div>
-                            <div style={{ fontSize: 12, fontWeight: 500, color: "#cbd5e1" }}>{state.lat?.toFixed(2) ?? "—"}</div>
+                            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", marginBottom: 1, letterSpacing: "0.08em", textTransform: "uppercase" }}>Avg WQI</div>
+                            <div style={{
+                              fontSize: 36,
+                              fontWeight: 800,
+                              color: wqiStatus.color,
+                              lineHeight: 1,
+                              textShadow: `0 0 20px ${wqiStatus.color}60`,
+                            }}>
+                              {state.avg_wqi ? Number(state.avg_wqi).toFixed(0) : "—"}
+                            </div>
                           </div>
-                          <div style={{ width: 1, background: "#1e2a3a", alignSelf: "stretch" }}/>
-                          <div>
-                            <div style={{ fontSize: 10, color: "#64748b", marginBottom: 1 }}>Lng</div>
-                            <div style={{ fontSize: 12, fontWeight: 500, color: "#cbd5e1" }}>{state.lng?.toFixed(2) ?? "—"}</div>
+
+                          {/* Lat/Lng */}
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+                              <div>
+                                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginBottom: 1, letterSpacing: "0.06em" }}>LAT</div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>{state.lat?.toFixed(2) ?? "—"}</div>
+                              </div>
+                              <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.12)" }} />
+                              <div>
+                                <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginBottom: 1, letterSpacing: "0.06em" }}>LNG</div>
+                                <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>{state.lng?.toFixed(2) ?? "—"}</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Bottom color bar */}
+                        <div style={{
+                          marginTop: 10,
+                          height: 2,
+                          borderRadius: 2,
+                          background: `linear-gradient(90deg, ${wqiStatus.color}, ${wqiStatus.color}30)`,
+                          opacity: 0.7,
+                        }} />
+                      </div>
+
+                      {/* Arrow icon — top left */}
+                      <div style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "rgba(255,255,255,0.1)",
+                        backdropFilter: "blur(6px)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}>
+                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                          <path d="M3 11h8V3H7" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M8 2l3 3" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
                       </div>
                     </div>
                   );
@@ -657,6 +856,18 @@ export function Dashboard() {
       <style>{`
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        .state-card {
+          transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                      box-shadow 0.35s ease,
+                      border-color 0.35s ease;
+        }
+        .card-bg-img {
+          transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
       `}</style>
     </div>
   );

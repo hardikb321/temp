@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { User, X, History, Mail, Phone, Award as IdCard, ArrowLeft, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import type { Marker } from "./MyMap";
+import type { WaterType } from "@/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,15 +22,17 @@ interface SubmissionRow {
   processed_at: string | null;
 }
 
-/** One row from GET /submissions/:id/lakes */
+/** One row from GET /submissions/:id/lakes or rivers */
 interface LakeRow {
-  lake_id: string;
+  lake_id?: string;
+  river_id?: string;
   marker_count: string | number;
 }
 
 /** One row from GET /submissions/:id/markers */
 interface MarkerRow {
-  lake_id: string;
+  lake_id?: string;
+  river_id?: string;
   lat: string | number;
   lng: string | number;
   parameters: Record<string, number>;
@@ -46,6 +49,7 @@ interface ProfileDropdownProps {
   isProcessingSubmit?: boolean;
   /** Called when user clicks a point in lake detail — fly map to that location */
   onPointClick?: (lat: number, lng: number) => void;
+  waterType?: WaterType;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -114,6 +118,7 @@ export function ProfileDropdown({
   onRejectedSessionResubmit,
   isProcessingSubmit,
   onPointClick,
+  waterType = "lake"
 }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -180,9 +185,11 @@ export function ProfileDropdown({
   const fetchSubmissions = useCallback(async (page: number, replace: boolean) => {
     setSessionsLoading(true);
     if (replace) setSessionsError(null);
+    
+    const route = waterType === "river" ? "rivers" : "lakes";
     try {
       const res = await fetch(
-        `${BASE}/api/lakes/submissions?page=${page}&limit=${SUBMISSIONS_LIMIT}`,
+        `${BASE}/api/${route}/submissions?page=${page}&limit=${SUBMISSIONS_LIMIT}`,
         
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -196,7 +203,7 @@ export function ProfileDropdown({
     } finally {
       setSessionsLoading(false);
     }
-  }, []);
+  }, [waterType]);
 
   useEffect(() => {
     if (isOpen) fetchSubmissions(1, true);
@@ -208,28 +215,34 @@ export function ProfileDropdown({
     setLakesError(null);
     setLakes([]);
     setLakesPage(0);
+    
+    const route = waterType === "river" ? "rivers" : "lakes";
     try {
       const res = await fetch(
-        `${BASE}/api/lakes/submissions/${submissionId}/lakes`,
+        `${BASE}/api/${route}/submissions/${submissionId}/lakes`,
         
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      setLakes(json?.data?.lakes ?? []);
+      setLakes(json?.data?.[route] ?? json?.data?.lakes ?? json?.data?.rivers ?? []);
     } catch (err) {
-      setLakesError(err instanceof Error ? err.message : "Failed to load lakes");
+      setLakesError(err instanceof Error ? err.message : `Failed to load ${waterType}s`);
     } finally {
       setLakesLoading(false);
     }
-  }, []);
+  }, [waterType]);
 
   // ─── fetch markers when entering lakeDetail ───────────────────────────────
     const fetchMarkers = useCallback(async (submissionId: string, lakeId: string, page: number, replace: boolean) => {
     setMarkersLoading(true);
     if (replace) { setMarkersError(null); setMarkers([]); }
+    
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+
     try {
       const res = await fetch(
-        `${BASE}/api/lakes/submissions/${submissionId}/markers?lake_id=${encodeURIComponent(lakeId)}&page=${page}&limit=${MARKERS_LIMIT}`,
+        `${BASE}/api/${route}/submissions/${submissionId}/markers?${idKey}=${encodeURIComponent(lakeId)}&page=${page}&limit=${MARKERS_LIMIT}`,
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -243,7 +256,7 @@ export function ProfileDropdown({
     } finally {
       setMarkersLoading(false);
     }
-  }, []);
+  }, [waterType]);
 
   // ─── fetch ALL markers for a rejected session then pass back to parent ────
   const handleRejectedResubmit = useCallback(async (submission: SubmissionRow) => {
@@ -251,24 +264,28 @@ export function ProfileDropdown({
     setRejectedFetching(true);
     setRejectedError(null);
 
+    const route = waterType === "river" ? "rivers" : "lakes";
+    const idKey = waterType === "river" ? "river_id" : "lake_id";
+
     try {
       // 1. Get lakes for this submission
       const lakesRes = await fetch(
-        `${BASE}/api/lakes/submissions/${submission.id}/lakes`,
+        `${BASE}/api/${route}/submissions/${submission.id}/lakes`,
         
       );
       if (!lakesRes.ok) throw new Error(`HTTP ${lakesRes.status}`);
       const lakesJson = await lakesRes.json();
-      const lakeRows: LakeRow[] = lakesJson?.data?.lakes ?? [];
+      const lakeRows: LakeRow[] = lakesJson?.data?.[route] ?? lakesJson?.data?.lakes ?? lakesJson?.data?.rivers ?? [];
 
       // 2. For every lake, paginate through all markers
       const allMarkers: Marker[] = [];
       for (const lake of lakeRows) {
         let page = 1;
         let hasMore = true;
-        while (hasMore) {
+        const currentId = waterType === "river" ? lake.river_id : lake.lake_id;
+        while (hasMore && currentId) {
           const mRes = await fetch(
-            `${BASE}/api/lakes/submissions/${submission.id}/markers?lake_id=${encodeURIComponent(lake.lake_id)}&page=${page}&limit=100`,
+            `${BASE}/api/${route}/submissions/${submission.id}/markers?${idKey}=${encodeURIComponent(currentId)}&page=${page}&limit=100`,
             
           );
           if (!mRes.ok) throw new Error(`HTTP ${mRes.status}`);
@@ -292,7 +309,7 @@ export function ProfileDropdown({
     } finally {
       setRejectedFetching(false);
     }
-  }, [isProcessingSubmit, rejectedFetching, onRejectedSessionResubmit]);
+  }, [isProcessingSubmit, rejectedFetching, onRejectedSessionResubmit, waterType]);
 
   // ─── navigation helpers ───────────────────────────────────────────────────
   const goToSessionDetail = (submission: SubmissionRow) => {
@@ -581,21 +598,25 @@ export function ProfileDropdown({
 
                 {lakes
                   .slice(lakesPage * LAKES_PAGE_SIZE, lakesPage * LAKES_PAGE_SIZE + LAKES_PAGE_SIZE)
-                  .map((lake) => (
-                    <button
-                      key={lake.lake_id}
-                      type="button"
-                      onClick={() => goToLakeDetail(lake.lake_id)}
-                      className="w-full text-left px-3 py-2 rounded-md bg-muted/40 hover:bg-muted text-xs transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">lake_id: {lake.lake_id}</span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {lake.marker_count} point{Number(lake.marker_count) !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                  .map((lake) => {
+                    const rowId = waterType === "river" ? lake.river_id : lake.lake_id;
+                    const displayLabel = waterType === "river" ? `river_id: ${rowId}` : `lake_id: ${rowId}`;
+                    return (
+                      <button
+                        key={rowId}
+                        type="button"
+                        onClick={() => { if(rowId) goToLakeDetail(rowId) }}
+                        className="w-full text-left px-3 py-2 rounded-md bg-muted/40 hover:bg-muted text-xs transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{displayLabel}</span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {lake.marker_count} point{Number(lake.marker_count) !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
 
                 {lakes.length > LAKES_PAGE_SIZE && (
                   <div className="flex items-center justify-between mt-2 text-[11px] text-muted-foreground">
