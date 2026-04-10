@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronDown, ChevronUp, Map } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Map, Activity } from "lucide-react";
 import type { Marker } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";
 import { PointChartsPanel } from "@/components/PointChartsPanel";
@@ -298,7 +298,7 @@ export function PointDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [allYearsData, setAllYearsData] = useState<YearData[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"chart" | "history">("chart");
+  const [activeTab, setActiveTab] = useState<"chart" | "history" | "ccme">("chart");
   const [expandedHistoryIdx, setExpandedHistoryIdx] = useState<number | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [states, setStates] = useState<StateWQI[]>([]);
@@ -829,8 +829,8 @@ export function PointDetailPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1 rounded-2xl w-fit" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-          {(["chart", "history"] as const).map((tab) => (
+        <div className="flex gap-1 mb-6 p-1 rounded-2xl w-fit flex-wrap" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          {(["chart", "history", "ccme"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -840,7 +840,7 @@ export function PointDetailPage() {
                 : { color: "#475569", border: "1px solid transparent" }
               }
             >
-              {tab === "chart" ? "📈 Year Trend" : "🕒 Point History"}
+              {tab === "chart" ? "📈 Year Trend" : tab === "history" ? "🕒 Point History" : "📊 CCME WQI History"}
             </button>
           ))}
         </div>
@@ -972,6 +972,38 @@ export function PointDetailPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* CCME Tab */}
+        {activeTab === "ccme" && (
+          <div className="rounded-3xl p-6" style={{
+            background: "linear-gradient(145deg, #0c1825, #0f2035)",
+            border: `1px solid rgba(255,255,255,0.07)`,
+            boxShadow: "0 24px 80px rgba(0,0,0,0.4)"
+          }}>
+            <div className="mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2 mb-2" style={{ color: "#fff" }}>
+                <Activity className="w-5 h-5" style={{ color: "#eab308" }} /> CCME WQI Parameters
+              </h3>
+              <p style={{ color: "#9ca3af", fontSize: "0.875rem" }}>
+                F1 (Scope), F2 (Frequency), and F3 (Amplitude) along with the overall CCME Water Quality Index over time.
+              </p>
+            </div>
+            
+            {/* We'll use PointChartsPanel but eventually wire it up to a CCME data source.
+                For now, its data will remain blank/unconfigured as requested. */}
+            <PointChartsPanel
+              availableYears={allYearsData.map(y => y.year)}
+              year={selectedYear}
+              onYearChange={setSelectedYear}
+              lakeId={marker.lakeId ?? null}
+              riverId={marker.riverId ?? null}
+              waterType={waterType}
+              lat={marker.latitude}
+              lng={marker.longitude}
+              isCcme={true} 
+            />
           </div>
         )}
 

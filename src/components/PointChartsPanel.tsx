@@ -22,6 +22,7 @@ interface PointChartsPanelProps {
   waterType?: "lake" | "river" | string;
   lat: number;
   lng: number;
+  isCcme?: boolean;
 }
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -47,6 +48,7 @@ export function PointChartsPanel({
   waterType = "lake",
   lat,
   lng,
+  isCcme = false,
 }: PointChartsPanelProps) {
   const selectedYear = year ?? availableYears[0] ?? new Date().getFullYear();
 
@@ -71,26 +73,52 @@ export function PointChartsPanel({
 
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
+    
+    let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`;
+    if (isCcme) {
+      url = `/api/${route}/marker-ccme-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`; // Assuming CCME endpoint
+    }
 
-    fetch(
-      `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`
-    )
+    if (!url) {
+      setWqiData([]);
+      setParametersData({});
+      setLoading(false);
+      setError("Endpoint to be configured later.");
+      return;
+    }
+
+    fetch(url)
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        // Since backend might return 404 for CCME chart if not built, ignore error and return empty layout for CCME
+        if (!r.ok) {
+          if (isCcme && r.status === 404) return { data: { wqi: [], parameters: {} } };
+          throw new Error(`HTTP ${r.status}`);
+        }
         return r.json();
       })
       .then((json) => {
-        setWqiData(json?.data?.wqi ?? []);
-        setParametersData(json?.data?.parameters ?? {});
+        let wqiDataParsed = json?.data?.wqi ?? [];
+        let paramsDataParsed = json?.data?.parameters ?? {};
+        
+        // Ensure F1, F2, F3 keys exist in CCME mode so the user can select them
+        if (isCcme) {
+           if (!paramsDataParsed["F1"]) paramsDataParsed["F1"] = [];
+           if (!paramsDataParsed["F2"]) paramsDataParsed["F2"] = [];
+           if (!paramsDataParsed["F3"]) paramsDataParsed["F3"] = [];
+        }
+
+        setWqiData(wqiDataParsed);
+        setParametersData(paramsDataParsed);
         setActiveParams([]); // reset on year change
       })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load chart data");
+      .catch((_err: unknown) => {
+        setError("Endpoint to be configured later. Showing empty chart layout.");
         setWqiData([]);
-        setParametersData({});
+        setParametersData(isCcme ? { "F1": [], "F2": [], "F3": [] } : {});
+        setActiveParams([]);
       })
       .finally(() => setLoading(false));
-  }, [lakeId, riverId, waterType, lat, lng, selectedYear]);
+  }, [lakeId, riverId, waterType, lat, lng, selectedYear, isCcme]);
 
   // WQI values (sparse)
   const wqiChartValues = useMemo(() => {
@@ -192,7 +220,7 @@ export function PointChartsPanel({
                   grid: { drawOnChartArea: false },
                   title: {
                     display: true,
-                    text: activeParams.length === 1 ? activeParams[0] : "Parameters",
+                    text: isCcme ? "F1/F2/F3 Value" : (activeParams.length === 1 ? activeParams[0] : "Parameters"),
                     color: "#a1a1aa",
                     font: { size: 11 },
                   },
@@ -204,7 +232,7 @@ export function PointChartsPanel({
     });
 
     return () => { chartRef.current?.destroy(); chartRef.current = null; };
-  }, [datasets, activeParams]);
+  }, [datasets, activeParams, isCcme]);
 
   // Add a parameter (select handler)
   const handleParamAdd = (param: string) => {

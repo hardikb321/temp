@@ -46,6 +46,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   const [wqiData, setWqiData] = useState<MonthlyWqi[]>([]);
   const [chartYear, setChartYear] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"chart" | "history">("chart");
+  const [wqiType, setWqiType] = useState<"standard" | "ccme">("standard");
 
   // Fetch point history when marker changes
   useEffect(() => {
@@ -62,9 +63,19 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
     
-    fetch(
-      `/api/${route}/marker-history?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=${maxAge}&offset=0`
-    )
+    let url = `/api/${route}/marker-history?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=${maxAge}&offset=0`;
+    if (wqiType === "ccme") {
+      url = ""; // TODO: Leave blank for now, add CCME history endpoint here later
+    }
+
+    if (!url) {
+      setHistoryEntries([]);
+      setError("CCME data endpoint not configured yet.");
+      setLoading(false);
+      return;
+    }
+    
+    fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -78,7 +89,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         setHistoryEntries([]);
       })
       .finally(() => setLoading(false));
-  }, [marker, waterType]);
+  }, [marker, waterType, wqiType]);
 
   // Fetch chart data when marker changes
   useEffect(() => {
@@ -95,9 +106,17 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
 
-    fetch(
-      `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`
-    )
+    let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
+    if (wqiType === "ccme") {
+      url = ""; // TODO: Leave blank for now, add CCME chart endpoint here later
+    }
+
+    if (!url) {
+      setWqiData([]);
+      return;
+    }
+
+    fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
@@ -108,7 +127,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       .catch((_err: unknown) => {
         setWqiData([]);
       });
-  }, [marker, waterType]);
+  }, [marker, waterType, wqiType]);
 
   // Get the latest entry
   const latestEntry = historyEntries[0] ?? null;
@@ -137,7 +156,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   const datasets = useMemo(
     () => [
       {
-        label: `WQI (${chartYear ?? "Year"})`,
+        label: `${wqiType === "ccme" ? "CCME " : ""}WQI (${chartYear ?? "Year"})`,
         data: wqiChartValues,
         borderColor: "#3b82f6",
         backgroundColor: "rgba(59,130,246,0.12)",
@@ -148,7 +167,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         spanGaps: true,
       },
     ],
-    [wqiChartValues, chartYear]
+    [wqiChartValues, chartYear, wqiType]
   );
 
   // Create/update chart
@@ -245,7 +264,9 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
 
   if (!marker) return null;
 
-  const latestWqi = latestEntry?.wqi ?? marker.essentialParameters?.wqi;
+  const latestWqi = wqiType === "ccme" 
+    ? latestEntry?.wqi 
+    : (latestEntry?.wqi ?? marker.essentialParameters?.wqi);
   const statusInfo = getWqiStatus(latestWqi);
 
   // Colored accent based on WQI status
@@ -258,8 +279,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         onClick={handleBackdropClick}
       />
       <div
-        onClick={handleViewDetails}
-        className="absolute top-4 left-4 z-40 cursor-pointer"
+        className="absolute top-4 left-4 z-40"
       >
         <div
           className="w-[300px] rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow"
@@ -270,9 +290,11 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
 
           {/* Header */}
           <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5 shrink-0">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 cursor-pointer" onClick={handleViewDetails}>
               <div className="w-2 h-2 rounded-full" style={{ background: accentColor }} />
-              <span className="text-xs font-semibold text-foreground tracking-wide">Water Quality Data</span>
+              <span className="text-xs font-semibold text-foreground tracking-wide hover:underline hover:text-primary transition-colors pr-2">
+                Water Quality Data (Click for details)
+              </span>
             </div>
             <button
               onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -286,7 +308,21 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
           {/* WQI Hero */}
           <div className="flex items-center gap-3 px-3 py-2 bg-muted/20 mx-3 rounded-lg mb-2">
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] text-muted-foreground uppercase tracking-widest mb-0.5">WQI Index</p>
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-widest">WQI Index</p>
+                <select
+                  className="text-[9px] bg-card border border-border/50 rounded px-1 py-0.5 text-muted-foreground outline-none cursor-pointer"
+                  value={wqiType}
+                  onChange={(e) => {
+                    const val = e.target.value as "standard" | "ccme";
+                    setWqiType(val);
+                    if (val === "ccme") setActiveTab("chart");
+                  }}
+                >
+                  <option value="standard">Standard</option>
+                  <option value="ccme">CCME</option>
+                </select>
+              </div>
               <p className="text-2xl font-bold leading-none" style={{ color: accentColor }}>
                 {latestWqi != null ? Number(latestWqi).toFixed(1) : "—"}
               </p>
@@ -344,13 +380,15 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
           )}
 
           {/* Tabs */}
-          <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="px-3 pb-3">
             <div className="flex mb-2 rounded-lg bg-muted/30 p-0.5 gap-0.5">
-              {(["chart", "history"] as const).map((tab) => (
+              {(["chart", "history"] as const)
+                .filter((tab) => wqiType !== "ccme" || tab !== "history")
+                .map((tab) => (
                 <button
                   key={tab}
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); setActiveTab(tab); }}
+                  onClick={() => setActiveTab(tab)}
                   className={`flex-1 text-[10px] font-semibold py-1 rounded-md transition-all ${
                     activeTab === tab
                       ? "bg-card text-foreground shadow-sm"
