@@ -1607,24 +1607,6 @@ export function MyMap({
                 )}
               </div>
             )}
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Marker color</label>
-              <div className="flex gap-2">
-                {MARKER_COLORS.map(({ value, label, bgClass }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setMarkerColor(value)}
-                    className={`h-8 w-8 rounded-full border-2 shadow-sm transition-all ${bgClass} ${
-                      markerColor === value ? "border-foreground ring-2 ring-offset-2 ring-offset-background ring-foreground scale-110" : "border-white hover:scale-105"
-                    }`}
-                    title={label}
-                  />
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Red, Blue, Yellow, Green</p>
-            </div>
             
             <div className="pt-2 border-t">
               <p className="text-sm font-medium mb-3 text-muted-foreground">Essential Parameters</p>
@@ -1877,6 +1859,8 @@ export function MyMap({
     parameters:  m.essentialParameters,           // already a flat { key: number } map
     observed_at: m.observedAt ? m.observedAt.toISOString() : m.timestamp.toISOString(),
   }));
+  
+  console.log("Submitting payload to backend:", { markers });
 
   try {
     const endpoint = isRiver
@@ -1901,8 +1885,16 @@ export function MyMap({
       return;
     }
 
-    // Backend accepted → show Accept / Reject decision UI
-    setSubmitStatus("awaitingDecision");
+    // Backend accepted → auto accept the markers
+    onSubmitDraftMarkers(snapshot);
+    mapRef.current?.triggerRepaint();
+    setPendingSubmitMarkers(null);
+    resetDraftFormState();
+    onDraftMarkersChange([]);
+    setSubmitStatus("accepted");
+    setIsSubmittingDraft(false);
+    setDraftPage(0);
+    onProcessingChange?.(false);
   } catch (networkErr) {
     setSubmitError("Network error — please check your connection and try again.");
     setSubmitStatus("idle");
@@ -1915,9 +1907,7 @@ export function MyMap({
                 {isSubmittingDraft
                   ? submitStatus === "processing"
                     ? "Processing…"
-                    : submitStatus === "awaitingDecision"
-                      ? "Awaiting decision…"
-                      : "Submit"
+                    : "Submit"
                   : `Submit (${draftMarkers.length})`}
               </Button>
             )}
@@ -2150,59 +2140,6 @@ export function MyMap({
               )}
               {submitError && (
                 <p className="mt-2 text-xs text-destructive">{submitError}</p>
-              )}
-              {submitStatus === "awaitingDecision" && (
-                <div className="mt-3 p-2 border border-border rounded bg-muted/60 space-y-2 text-xs">
-                  <p className="font-medium text-foreground">
-                    Processing complete. Apply these points?
-                  </p>
-                  <p className="text-muted-foreground">
-                    Accept to save these points to the map and history, or reject to record a
-                    rejected session in your profile (points are not saved; you can retry from profile).
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        if (!pendingSubmitMarkers) return;
-                        // Accept: commit processed markers to submitted + sessions via parent.
-                        onSubmitDraftMarkers(pendingSubmitMarkers);
-                        mapRef.current?.triggerRepaint();
-                        setPendingSubmitMarkers(null);
-                        resetDraftFormState();
-                        onDraftMarkersChange([]);
-                        setSubmitStatus("accepted");
-                        setIsSubmittingDraft(false);
-                        setDraftPage(0);
-                        onProcessingChange?.(false);
-                      }}
-                    >
-                      Accept
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        // Reject: record a rejected session in profile only (no map/history update).
-                        // Clear draft markers and form so points disappear from map, like Accept.
-                        if (pendingSubmitMarkers && onRejectDraftSession) {
-                          onRejectDraftSession(pendingSubmitMarkers);
-                        }
-                        setPendingSubmitMarkers(null);
-                        onDraftMarkersChange([]);
-                        resetDraftFormState();
-                        setSubmitStatus("rejected");
-                        setIsSubmittingDraft(false);
-                        setDraftPage(0);
-                        onProcessingChange?.(false);
-                      }}
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </div>
               )}
               {submitStatus === "accepted" && !isSubmittingDraft && (
                 <p className="mt-2 text-xs text-emerald-500">
