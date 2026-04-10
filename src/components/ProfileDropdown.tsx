@@ -31,8 +31,8 @@ interface LakeRow {
 
 /** One row from GET /submissions/:id/markers */
 interface MarkerRow {
-  lake_id?: string;
-  river_id?: string;
+  lake_id?: string | null;
+  river_id?: string | null;
   lat: string | number;
   lng: string | number;
   parameters: Record<string, number>;
@@ -65,46 +65,79 @@ function fmtTime(s: string) {
   return new Date(s).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Convert a MarkerRow (from the API) into the Marker shape that MyMap uses. */
+/** Convert a MarkerRow (from the API) into the Marker shape that MyMap uses.
+ *
+ * The `parameters` JSONB column can be stored in two formats depending on
+ * how/when the submission was made:
+ *   1. Display-name keys  — e.g. "Iron (Fe) [mg/L]": 1   (rivers, temp_markers)
+ *   2. Snake-case keys    — e.g. "iron_fe_mg_l": 1        (normalised lake rows)
+ *
+ * Each lookup below tries the snake_case key first, then falls back to the
+ * display-name key so both formats are handled correctly.
+ */
 function rowToMarker(row: MarkerRow): Marker {
   const p = row.parameters ?? {};
 
-  // map backend snake_case keys → frontend display keys
+  // ── DEBUG: log the raw parameters object from DB so we can see exact keys ──
+  console.group(`[rowToMarker] row @ lat=${row.lat} lng=${row.lng}`);
+  console.log("[rowToMarker] RAW row:", JSON.stringify(row, null, 2));
+  console.log("[rowToMarker] parameters keys:", Object.keys(p));
+  console.log("[rowToMarker] parameters values:", JSON.stringify(p, null, 2));
+  console.groupEnd();
+
+  /** Pick a value by trying snakeKey first, then displayKey, defaulting to 0. */
+  function pick(snakeKey: string, displayKey: string): number {
+    const bySnake   = p[snakeKey];
+    const byDisplay = p[displayKey];
+    const v = bySnake ?? byDisplay;
+    if (v == null) {
+      console.warn(`[rowToMarker] MISS — neither "${snakeKey}" nor "${displayKey}" found in parameters`);
+    }
+    return v != null ? Number(v) : 0;
+  }
+
   const essentialParameters: Record<string, number> = {
-    "Arsenic (As) [mg/L]":                  Number(p["arsenic_as_mg_l"]          ?? 0),
-    "Cadmium (Cd) [mg/L]":                  Number(p["cadmium_cd_mg_l"]          ?? 0),
-    "Calcium (Ca) [mg/L]":                  Number(p["calcium_ca_mg_l"]          ?? 0),
-    "Chloride (Cl) [mg/L]":                 Number(p["chloride_cl_mg_l"]         ?? 0),
-    "Chlorine (Cl2) [mg/L]":               Number(p["chlorine_cl2_mg_l"]        ?? 0),
-    "Dissolved Oxygen (DO) [mg/L]":         Number(p["dissolved_oxygen_do_mg_l"] ?? 0),
-    "Fecal Coliform [MPN/100mL]":           Number(p["fecal_coliform_mpn_100ml"] ?? 0),
-    "Fluoride (F) [mg/L]":                  Number(p["fluoride_f_mg_l"]          ?? 0),
-    "Iron (Fe) [mg/L]":                     Number(p["iron_fe_mg_l"]             ?? 0),
-    "Lead (Pb) [mg/L]":                     Number(p["lead_pb_mg_l"]             ?? 0),
-    "Magnesium (Mg) [mg/L]":               Number(p["magnesium_mg_l_1"]         ?? 0),
-    "Manganese (Mn) [mg/L]":               Number(p["manganese_mn_mg_l"]        ?? 0),
-    "Nickel (Ni) [mg/L]":                   Number(p["nickel_ni_mg_l"]           ?? 0),
-    "Nitrate (NO3) Nitrogen [mg/L]":        Number(p["nitrate_no3_nitrogen_mg_l"]?? 0),
-    "pH":                                   Number(p["ph"]                       ?? 0),
-    "Total Alkalinity as CaCO3 [mg/L]":    Number(p["total_alkalinity_as_caco3_mg_l"] ?? 0),
-    "Total Coliforms [MPN/100mL]":          Number(p["total_coliforms_mpn_100ml"]?? 0),
-    "Total Dissolved Solids (TDS) [mg/L]": Number(p["tds_mg_l"]                 ?? 0),
-    "Total Hardness as CaCO3 [mg/L]":      Number(p["total_hardness_as_caco3_mg_l"] ?? 0),
-    "Turbidity [NTU]":                      Number(p["turbidity_ntu"]            ?? 0),
-    "Zinc (Zn) [mg/L]":                     Number(p["zinc_zn_mg_l"]             ?? 0),
+    "Arsenic (As) [mg/L]":                  pick("arsenic_as_mg_l",                   "Arsenic (As) [mg/L]"),
+    "Cadmium (Cd) [mg/L]":                  pick("cadmium_cd_mg_l",                   "Cadmium (Cd) [mg/L]"),
+    "Calcium (Ca) [mg/L]":                  pick("calcium_ca_mg_l",                   "Calcium (Ca) [mg/L]"),
+    "Chloride (Cl) [mg/L]":                 pick("chloride_cl_mg_l",                  "Chloride (Cl) [mg/L]"),
+    "Chlorine (Cl2) [mg/L]":               pick("chlorine_cl2_mg_l",                 "Chlorine (Cl2) [mg/L]"),
+    "Dissolved Oxygen (DO) [mg/L]":         pick("dissolved_oxygen_do_mg_l",          "Dissolved Oxygen (DO) [mg/L]"),
+    "Fecal Coliform [MPN/100mL]":           pick("fecal_coliform_mpn_100ml",          "Fecal Coliform [MPN/100mL]"),
+    "Fluoride (F) [mg/L]":                  pick("fluoride_f_mg_l",                   "Fluoride (F) [mg/L]"),
+    "Iron (Fe) [mg/L]":                     pick("iron_fe_mg_l",                      "Iron (Fe) [mg/L]"),
+    "Lead (Pb) [mg/L]":                     pick("lead_pb_mg_l",                      "Lead (Pb) [mg/L]"),
+    "Magnesium (Mg) [mg/L]":               pick("magnesium_mg_l_1",                  "Magnesium (Mg) [mg/L]"),
+    "Manganese (Mn) [mg/L]":               pick("manganese_mn_mg_l",                 "Manganese (Mn) [mg/L]"),
+    "Nickel (Ni) [mg/L]":                   pick("nickel_ni_mg_l",                    "Nickel (Ni) [mg/L]"),
+    "Nitrate (NO3) Nitrogen [mg/L]":        pick("nitrate_no3_nitrogen_mg_l",         "Nitrate (NO3) Nitrogen [mg/L]"),
+    "pH":                                   pick("ph",                                "pH"),
+    "Total Alkalinity as CaCO3 [mg/L]":    pick("total_alkalinity_as_caco3_mg_l",    "Total Alkalinity as CaCO3 [mg/L]"),
+    "Total Coliforms [MPN/100mL]":          pick("total_coliforms_mpn_100ml",         "Total Coliforms [MPN/100mL]"),
+    "Total Dissolved Solids (TDS) [mg/L]": pick("tds_mg_l",                          "Total Dissolved Solids (TDS) [mg/L]"),
+    "Total Hardness as CaCO3 [mg/L]":      pick("total_hardness_as_caco3_mg_l",      "Total Hardness as CaCO3 [mg/L]"),
+    "Turbidity [NTU]":                      pick("turbidity_ntu",                     "Turbidity [NTU]"),
+    "Zinc (Zn) [mg/L]":                     pick("zinc_zn_mg_l",                      "Zinc (Zn) [mg/L]"),
   };
 
+  // Additional optional params — also try both key styles
+  const tempRaw   = p["temperature"]  ?? p["Temperature (°C)"];
+  const bodRaw    = p["bod"]          ?? p["BOD (mg/L)"];
+  const condRaw   = p["conductivity"] ?? p["Conductivity (μS/cm)"];
+  const aodRaw    = p["aod"]          ?? p["AOD"];
+
   return {
-    id: `${row.lake_id}-${row.lat}-${row.lng}-${row.created_at}`,
-    latitude: Number(row.lat),
-    longitude: Number(row.lng),
-    lakeId: row.lake_id,
-    turbidity: essentialParameters["Turbidity [NTU]"],
-    ph: essentialParameters["pH"],
-    temperature: p["temperature"] != null ? Number(p["temperature"]) : undefined,
-    bod: p["bod"] != null ? Number(p["bod"]) : undefined,
-    conductivity: p["conductivity"] != null ? Number(p["conductivity"]) : undefined,
-    aod: p["aod"] != null ? Number(p["aod"]) : undefined,
+    id: `${row.river_id ?? row.lake_id}-${row.lat}-${row.lng}-${row.created_at}`,
+    latitude:   Number(row.lat),
+    longitude:  Number(row.lng),
+    lakeId:     row.lake_id ?? undefined,
+    riverId:    row.river_id ?? undefined,
+    turbidity:  essentialParameters["Turbidity [NTU]"],
+    ph:         essentialParameters["pH"],
+    temperature: tempRaw != null ? Number(tempRaw) : undefined,
+    bod:         bodRaw  != null ? Number(bodRaw)  : undefined,
+    conductivity: condRaw != null ? Number(condRaw) : undefined,
+    aod:          aodRaw  != null ? Number(aodRaw)  : undefined,
     essentialParameters,
     timestamp: new Date(row.created_at),
   };
@@ -247,6 +280,8 @@ export function ProfileDropdown({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const rows: MarkerRow[] = json?.data?.markers ?? [];
+      console.log("[fetchMarkers] RAW API response:", JSON.stringify(json, null, 2));
+      console.log("[fetchMarkers] Parsed marker rows:", rows.length, rows);
       
       setMarkers((prev) => (replace ? rows : [...prev, ...rows]));
       setMarkersHasMore(rows.length === MARKERS_LIMIT);
@@ -291,7 +326,12 @@ export function ProfileDropdown({
           if (!mRes.ok) throw new Error(`HTTP ${mRes.status}`);
           const mJson = await mRes.json();
           const rows: MarkerRow[] = mJson?.data?.markers ?? [];
-          allMarkers.push(...rows.map(rowToMarker));
+          console.log("[resubmit] RAW markers response page", page, ":", JSON.stringify(mJson, null, 2));
+          console.log("[resubmit] MarkerRow count:", rows.length);
+          if (rows.length > 0) console.log("[resubmit] First row parameters:", JSON.stringify(rows[0].parameters, null, 2));
+          const mapped = rows.map(rowToMarker);
+          console.log("[resubmit] Mapped Marker essentialParameters[0]:", mapped[0]?.essentialParameters);
+          allMarkers.push(...mapped);
           hasMore = rows.length === 100;
           page++;
         }
@@ -302,6 +342,8 @@ export function ProfileDropdown({
         return;
       }
 
+      console.log("[resubmit] FINAL allMarkers to pass to map:", allMarkers.length);
+      console.log("[resubmit] Sample essentialParameters:", JSON.stringify(allMarkers[0]?.essentialParameters, null, 2));
       onRejectedSessionResubmit?.(allMarkers);
       setIsOpen(false);
     } catch (err) {
@@ -475,7 +517,7 @@ export function ProfileDropdown({
                                 {fmtDate(sub.created_at)} {fmtTime(sub.created_at)}
                               </span>
                               <span className="text-[11px] font-medium text-red-500 shrink-0">
-                                Rejected
+                                Error
                               </span>
                             </div>
                             {sub.processed_at && (

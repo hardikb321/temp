@@ -207,6 +207,8 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
       maxzoom: 13,
     });
 
+    const beforeLayerId = map.getLayer("esri-labels-layer") ? "esri-labels-layer" : undefined;
+
     // Fill layer
     if (layerConfig.fillLayerId && layerConfig.fillColor) {
       map.addLayer({
@@ -218,7 +220,7 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
           "fill-color": layerConfig.fillColor,
           "fill-opacity": 0.5,
         },
-      });
+      }, beforeLayerId);
     }
 
     // Outline layer
@@ -232,7 +234,7 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
           "line-color": layerConfig.outlineColor,
           "line-width": 1,
         },
-      });
+      }, beforeLayerId);
     }
 
     // Line layer (e.g. rivers)
@@ -247,7 +249,7 @@ function WaterTypeLayer({ waterType, showTiles }: { waterType: WaterType; showTi
           "line-width": layerConfig.lineWidth ?? 1.5,
           "line-opacity": 0.8,
         },
-      });
+      }, beforeLayerId);
     }
     
     // Debug click handler
@@ -336,6 +338,8 @@ function HighlightedRiverLayer({ geometry }: { geometry: any }) {
         data: geometry,
       });
 
+      const beforeLayerId = map.getLayer("esri-labels-layer") ? "esri-labels-layer" : undefined;
+
       map.addLayer({
         id: layerId,
         type: "line",
@@ -346,7 +350,7 @@ function HighlightedRiverLayer({ geometry }: { geometry: any }) {
           "line-opacity": 0.8,
           "line-blur": 1,
         },
-      });
+      }, beforeLayerId);
     }
 
     return () => {
