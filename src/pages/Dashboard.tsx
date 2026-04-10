@@ -497,7 +497,7 @@ export function Dashboard() {
             <h1 className="text-5xl md:text-6xl font-extrabold mb-4 tracking-tight" style={{ color: "#ffffff" }}>
               Varuna{" "}
               <span style={{ background: "linear-gradient(90deg, #1e90ff, #00e5ff)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                Dhrishti
+                Drishti
               </span>
             </h1>
             <p className="text-lg text-slate-400 max-w-xl leading-relaxed">

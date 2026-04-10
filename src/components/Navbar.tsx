@@ -20,7 +20,7 @@ export function Navbar({ onRejectedSessionResubmit, waterType }: NavbarProps) {
       <div className="flex items-center justify-between h-14 px-6">
         <Link to="/dashboard" className="flex items-center gap-2 group">        
           <div className="font-semibold text-base bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-            Varuna Dhrishti
+            Varuna Drishti
           </div>
         </Link>
 

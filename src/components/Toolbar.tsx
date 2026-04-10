@@ -33,7 +33,7 @@ export function Toolbar({
     <header className="w-full border-b border-border bg-card">
       <div className="flex items-center justify-between h-14 px-6">
         <div className="flex items-center gap-6">
-          <div className="font-semibold text-lg">Varuna Dhrishti</div>
+          <div className="font-semibold text-lg">Varuna Drishti</div>
           <nav className="flex items-center gap-1" aria-label="Water type">
             {(["ponds", "river", "lake"] as const).map((type) => (
               <button
