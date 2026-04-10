@@ -29,10 +29,11 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 // Helper to determine WQI status — matches PointDetailPage
 function getWqiStatus(wqi: number | null | undefined): { label: string; dotColor: string } {
   if (wqi == null) return { label: "Unknown", dotColor: "#6b7280" };
-  if (wqi < 40) return { label: "Poor", dotColor: "#ef4444" };
-  if (wqi < 65) return { label: "Moderate", dotColor: "#eab308" };
-  if (wqi < 85) return { label: "Good", dotColor: "#22c55e" };
-  return { label: "Excellent", dotColor: "#06b6d4" };
+  if (wqi <= 50) return { label: "Excellent", dotColor: "#3b82f6" };
+  if (wqi <= 100) return { label: "Good", dotColor: "#22c55e" };
+  if (wqi <= 150) return { label: "Moderate", dotColor: "#eab308" };
+  if (wqi <= 200) return { label: "Poor", dotColor: "#f97316" };
+  return { label: "Extremely poor", dotColor: "#ef4444" };
 }
 
 export function PointDataCard({ marker, waterType = "lake", onClose }: PointDataCardProps) {
@@ -100,32 +101,53 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       return;
     }
 
-    const year = new Date().getFullYear();
-    setChartYear(year);
-
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
 
-    let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
-    if (wqiType === "ccme") {
-      url = ""; // TODO: Leave blank for now, add CCME chart endpoint here later
-    }
-
-    if (!url) {
-      setWqiData([]);
-      return;
-    }
-
-    fetch(url)
+    // First, fetch available years
+    fetch(`/api/${route}/marker-years?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error("Failed to fetch years");
         return r.json();
       })
       .then((json) => {
-        setWqiData(json?.data?.wqi ?? []);
+        let years: number[] = json?.data?.length ? json.data : [new Date().getFullYear()];
+        // Sort descending so the most recent year is first
+        years.sort((a, b) => b - a);
+        const year = years[0];
+        setChartYear(year);
+
+        let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
+        if (wqiType === "ccme") {
+          url = ""; // CCME not implemented yet
+        }
+
+        if (!url) {
+          setWqiData([]);
+          return;
+        }
+
+        fetch(url)
+          .then((r) => r.json())
+          .then((jsonChart) => setWqiData(jsonChart?.data?.wqi ?? []))
+          .catch(() => setWqiData([]));
       })
-      .catch((_err: unknown) => {
-        setWqiData([]);
+      .catch(() => {
+        const year = new Date().getFullYear();
+        setChartYear(year);
+        
+        let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
+        if (wqiType === "ccme") url = "";
+        
+        if (!url) {
+          setWqiData([]);
+          return;
+        }
+        
+        fetch(url)
+          .then((r) => r.json())
+          .then((jsonChart) => setWqiData(jsonChart?.data?.wqi ?? []))
+          .catch(() => setWqiData([]));
       });
   }, [marker, waterType, wqiType]);
 
@@ -282,7 +304,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         className="absolute top-4 left-4 z-40"
       >
         <div
-          className="w-[300px] rounded-xl overflow-hidden shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow"
+          className="w-[300px] max-h-[calc(100svh-12rem)] rounded-xl overflow-y-auto shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow custom-scrollbar"
           style={{ boxShadow: `0 0 0 2px ${accentColor}22, 0 8px 32px rgba(0,0,0,0.35)` }}
         >
           {/* Colored top accent bar */}

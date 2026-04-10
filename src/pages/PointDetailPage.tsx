@@ -42,21 +42,24 @@ function getWqiStatus(wqi: number | null | undefined): {
 } {
   if (wqi == null)
     return { label: "Unknown", color: "text-gray-400", bgColor: "bg-gray-800", dotColor: "#6b7280", barColor: "#6b7280", textHex: "#9ca3af" };
-  if (wqi < 40)
-    return { label: "Poor", color: "text-red-400", bgColor: "bg-red-900/30", dotColor: "#ef4444", barColor: "#ef4444", textHex: "#f87171" };
-  if (wqi < 65)
-    return { label: "Moderate", color: "text-yellow-400", bgColor: "bg-yellow-900/30", dotColor: "#eab308", barColor: "#eab308", textHex: "#facc15" };
-  if (wqi < 85)
+  if (wqi <= 50)
+    return { label: "Excellent", color: "text-blue-400", bgColor: "bg-blue-900/30", dotColor: "#3b82f6", barColor: "#3b82f6", textHex: "#60a5fa" };
+  if (wqi <= 100)
     return { label: "Good", color: "text-green-400", bgColor: "bg-green-900/30", dotColor: "#22c55e", barColor: "#22c55e", textHex: "#4ade80" };
-  return { label: "Excellent", color: "text-cyan-400", bgColor: "bg-cyan-900/30", dotColor: "#06b6d4", barColor: "#06b6d4", textHex: "#22d3ee" };
+  if (wqi <= 150)
+    return { label: "Moderate", color: "text-yellow-400", bgColor: "bg-yellow-900/30", dotColor: "#eab308", barColor: "#eab308", textHex: "#facc15" };
+  if (wqi <= 200)
+    return { label: "Poor", color: "text-orange-400", bgColor: "bg-orange-900/30", dotColor: "#f97316", barColor: "#f97316", textHex: "#fb923c" };
+  return { label: "Extremely poor", color: "text-red-400", bgColor: "bg-red-900/30", dotColor: "#ef4444", barColor: "#ef4444", textHex: "#f87171" };
 }
 
 function getWqiColor(wqi: number | null): { color: string; bgColor: string; label: string } {
   if (wqi == null) return { color: "#6b7280", bgColor: "#6b728026", label: "Unknown" };
-  if (wqi < 40) return { color: "#ef4444", bgColor: "#ef444426", label: "Poor" };
-  if (wqi < 65) return { color: "#f59e0b", bgColor: "#f59e0b26", label: "Fair" };
-  if (wqi < 85) return { color: "#22c55e", bgColor: "#22c55e26", label: "Good" };
-  return { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
+  if (wqi <= 50) return { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
+  if (wqi <= 100) return { color: "#22c55e", bgColor: "#22c55e26", label: "Good" };
+  if (wqi <= 150) return { color: "#eab308", bgColor: "#eab30826", label: "Moderate" };
+  if (wqi <= 200) return { color: "#f97316", bgColor: "#f9731626", label: "Poor" };
+  return { color: "#ef4444", bgColor: "#ef444426", label: "Extremely poor" };
 }
 
 // Converts a state name to a file-safe slug: "Uttar Pradesh" → "uttar-pradesh"
@@ -66,16 +69,16 @@ function toStateSlug(stateName: string): string {
 
 // WQI scale bar — mirrors AQI.in's gradient bar
 function WqiScaleBar({ wqi }: { wqi: number | null }) {
-  const maxWqi = 100;
+  const maxWqi = 250;
   const pct = wqi != null ? Math.min((wqi / maxWqi) * 100, 100) : 0;
   return (
     <div className="mt-4">
       <div className="flex justify-between text-xs mb-1" style={{ color: "#64748b" }}>
-        {["Poor", "Moderate", "Good", "Excellent"].map((l) => (
+        {["Excellent", "Good", "Moderate", "Poor", "Extremely poor"].map((l) => (
           <span key={l}>{l}</span>
         ))}
       </div>
-      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: "linear-gradient(to right, #ef4444, #eab308, #22c55e, #06b6d4)" }}>
+      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: "linear-gradient(to right, #3b82f6, #22c55e, #eab308, #f97316, #ef4444)" }}>
         {wqi != null && (
           <div
             className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-lg"
@@ -84,7 +87,7 @@ function WqiScaleBar({ wqi }: { wqi: number | null }) {
         )}
       </div>
       <div className="flex justify-between text-xs mt-1" style={{ color: "#475569" }}>
-        <span>0</span><span>40</span><span>65</span><span>85</span><span>100+</span>
+        <span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>250+</span>
       </div>
     </div>
   );
@@ -92,7 +95,7 @@ function WqiScaleBar({ wqi }: { wqi: number | null }) {
 
 // Animated character based on WQI level
 function WqiCharacter({ wqi }: { wqi: number | null }) {
-  const mood = wqi == null ? "unknown" : wqi < 40 ? "poor" : wqi < 65 ? "moderate" : wqi < 85 ? "good" : "excellent";
+  const mood = wqi == null ? "unknown" : wqi <= 50 ? "excellent" : wqi <= 100 ? "good" : wqi <= 150 ? "moderate" : wqi <= 200 ? "poor" : "extremely-poor";
 
   // Skin, hair, cloth colors
   const skin = "#f5c5a3";
@@ -100,9 +103,9 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
   const hair = "#2d1a0e";
   const lip = "#c97b6a";
 
-  const shirtColor = mood === "excellent" ? "#22d3ee" : mood === "good" ? "#4ade80" : mood === "moderate" ? "#f59e0b" : "#ef4444";
-  const shirtDark  = mood === "excellent" ? "#0e9ab5" : mood === "good" ? "#22c55e" : mood === "moderate" ? "#d97706" : "#b91c1c";
-  const pantColor  = mood === "excellent" ? "#1e40af" : mood === "good" ? "#166534" : mood === "moderate" ? "#78350f" : "#7f1d1d";
+  const shirtColor = mood === "excellent" ? "#3b82f6" : mood === "good" ? "#22c55e" : mood === "moderate" ? "#eab308" : mood === "poor" ? "#f97316" : "#ef4444";
+  const shirtDark  = mood === "excellent" ? "#1d4ed8" : mood === "good" ? "#15803d" : mood === "moderate" ? "#a16207" : mood === "poor" ? "#c2410c" : "#b91c1c";
+  const pantColor  = mood === "excellent" ? "#1e3a8a" : mood === "good" ? "#14532d" : mood === "moderate" ? "#713f12" : mood === "poor" ? "#7c2d12" : "#7f1d1d";
 
   return (
     <div className="relative flex items-end justify-center" style={{ width: 110, height: 150 }}>
@@ -111,11 +114,19 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
         @keyframes h-sway   { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(4deg)} }
         @keyframes h-droop  { 0%,100%{transform:translateY(0) rotate(-1deg)} 50%{transform:translateY(5px) rotate(1deg)} }
         @keyframes h-idle   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+       @keyframes h-tremble{ 0%{transform:translate(0,0) rotate(0deg)} 10%{transform:translate(-4px,2px) rotate(-3deg)} 20%{transform:translate(4px,-1px) rotate(3deg)} 30%{transform:translate(-5px,3px) rotate(-4deg)} 40%{transform:translate(5px,0px) rotate(4deg)} 50%{transform:translate(-3px,4px) rotate(-3deg)} 60%{transform:translate(4px,1px) rotate(3deg)} 70%{transform:translate(-4px,2px) rotate(-4deg)} 80%{transform:translate(3px,-1px) rotate(2deg)} 90%{transform:translate(-2px,3px) rotate(-2deg)} 100%{transform:translate(0,0) rotate(0deg)} }
         .mood-excellent-h { animation: h-bounce 0.8s ease-in-out infinite; transform-origin: 55px 145px; }
         .mood-good-h      { animation: h-idle   1.6s ease-in-out infinite; transform-origin: 55px 145px; }
         .mood-moderate-h  { animation: h-sway   2.2s ease-in-out infinite; transform-origin: 55px 145px; }
         .mood-poor-h      { animation: h-droop  2.8s ease-in-out infinite; transform-origin: 55px 145px; }
+       .mood-extremely-poor-h { animation: h-tremble 1.2s linear infinite; transform-origin: 55px 145px; }
         .mood-unknown-h   { animation: h-idle   2s   ease-in-out infinite; transform-origin: 55px 145px; }
+        .mood-excellent-v { animation: h-bounce 0.8s ease-in-out infinite; transform-origin: 55px 145px; }
+        .mood-good-v      { animation: h-idle   1.6s ease-in-out infinite; transform-origin: 55px 145px; }
+        .mood-moderate-v  { animation: h-sway   2.2s ease-in-out infinite; transform-origin: 55px 145px; }
+        .mood-poor-v      { animation: h-droop  2.8s ease-in-out infinite; transform-origin: 55px 145px; }
+       .mood-extremely-poor-v { animation: h-tremble 1.2s linear infinite; transform-origin: 55px 145px; }
+        .mood-unknown-v   { animation: h-idle   2s   ease-in-out infinite; transform-origin: 55px 145px; }
       `}</style>
 
       {/* Shadow */}
@@ -130,9 +141,9 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
           <rect x="33" y="130" width="18" height="10" rx="4" fill="#1e293b" /> {/* shoe */}
           <rect x="31" y="134" width="20" height="6"  rx="3" fill="#334155" />
           {/* Right leg */}
-          <rect x={mood === "poor" ? "58" : "56"} y="108" width="16" height="30" rx="7" fill={pantColor} />
-          <rect x={mood === "poor" ? "57" : "55"} y="130" width="18" height="10" rx="4" fill="#1e293b" />
-          <rect x={mood === "poor" ? "55" : "53"} y="134" width="20" height="6"  rx="3" fill="#334155" />
+          <rect x={(mood === "poor" || mood === "extremely-poor") ? "58" : "56"} y="108" width="16" height="30" rx="7" fill={pantColor} />
+          <rect x={(mood === "poor" || mood === "extremely-poor") ? "57" : "55"} y="130" width="18" height="10" rx="4" fill="#1e293b" />
+          <rect x={(mood === "poor" || mood === "extremely-poor") ? "55" : "53"} y="134" width="20" height="6"  rx="3" fill="#334155" />
 
           {/* === TORSO === */}
           <rect x="30" y="72" width="46" height="42" rx="10" fill={shirtColor} />
@@ -200,7 +211,7 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
           <ellipse cx="55" cy="22" rx="22" ry="12" fill={hair} />
           <ellipse cx="55" cy="26" rx="20" ry="8"  fill={hair} />
           {/* hair strand */}
-          {mood === "poor" && <path d="M55,18 Q60,10 58,6" stroke={hair} strokeWidth="3" strokeLinecap="round" fill="none"/>}
+          {(mood === "poor" || mood === "extremely-poor") && <path d="M55,18 Q60,10 58,6" stroke={hair} strokeWidth="3" strokeLinecap="round" fill="none"/>}
           {mood === "excellent" && <>
             <path d="M40,20 Q36,10 38,6" stroke={hair} strokeWidth="3" strokeLinecap="round" fill="none"/>
             <path d="M55,18 Q55,8  56,4"  stroke={hair} strokeWidth="3" strokeLinecap="round" fill="none"/>
@@ -214,7 +225,7 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
           <ellipse cx="77" cy="44" rx="3" ry="5" fill={skinDark} opacity="0.3" />
 
           {/* === EYEBROWS === */}
-          {mood === "poor" ? (
+          {(mood === "poor" || mood === "extremely-poor") ? (
             <>
               <path d="M41,31 Q46,35 51,32" stroke={hair} strokeWidth="2.2" fill="none" strokeLinecap="round"/>
               <path d="M59,32 Q64,35 69,31" stroke={hair} strokeWidth="2.2" fill="none" strokeLinecap="round"/>
@@ -246,7 +257,7 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
               <ellipse cx="38" cy="46" rx="6" ry="3" fill="#f9a8d4" opacity="0.55"/>
               <ellipse cx="72" cy="46" rx="6" ry="3" fill="#f9a8d4" opacity="0.55"/>
             </>
-          ) : mood === "poor" ? (
+          ) : (mood === "poor" || mood === "extremely-poor") ? (
             <>
               {/* Sad droopy eyes */}
               <ellipse cx="46" cy="39" rx="5" ry="5.5" fill="white"/>
@@ -256,7 +267,14 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
               <circle cx="47" cy="38" r="1.2" fill="white"/>
               <circle cx="65" cy="38" r="1.2" fill="white"/>
               {/* tear */}
-              <path d="M67,43 Q68,50 66,54" stroke="#60a5fa" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.8"/>
+{mood === "extremely-poor" ? (
+  <>
+    <path d="M67,43 Q68,50 66,54" stroke="#60a5fa" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.8"/>
+    <path d="M43,43 Q42,50 44,54" stroke="#60a5fa" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.8"/>
+  </>
+) : (
+  <path d="M67,43 Q68,50 66,54" stroke="#60a5fa" strokeWidth="2" fill="none" strokeLinecap="round" opacity="0.8"/>
+)}
             </>
           ) : (
             <>
@@ -276,7 +294,7 @@ function WqiCharacter({ wqi }: { wqi: number | null }) {
           {mood === "excellent" && <path d="M43,54 Q55,64 67,54" stroke={lip} strokeWidth="2.5" fill="none" strokeLinecap="round"/>}
           {mood === "good"      && <path d="M45,54 Q55,60 65,54" stroke={lip} strokeWidth="2.5" fill="none" strokeLinecap="round"/>}
           {mood === "moderate"  && <line x1="46" y1="56" x2="64" y2="56" stroke={lip} strokeWidth="2.5" strokeLinecap="round"/>}
-          {mood === "poor"      && <path d="M45,58 Q55,52 65,58" stroke={lip} strokeWidth="2.5" fill="none" strokeLinecap="round"/>}
+          {(mood === "poor" || mood === "extremely-poor") && <path d="M45,58 Q55,52 65,58" stroke={lip} strokeWidth="2.5" fill="none" strokeLinecap="round"/>}
 
           {/* Teeth for excellent */}
           {mood === "excellent" && <path d="M47,55 Q55,62 63,55 L63,59 Q55,66 47,59 Z" fill="white" opacity="0.9"/>}
@@ -378,7 +396,9 @@ export function PointDetailPage() {
       });
   }, [waterType]);
 
-  const latestEntry = historyEntries[0] ?? null;
+  // TEMP TEST — change 25 to: 75, 125, 175, 225 for other categories
+// line 392 — original
+const latestEntry = historyEntries[0] ?? null;
 
   if (!marker || pageError) {
     return (
@@ -777,10 +797,11 @@ export function PointDetailPage() {
                   <circle cx="200" cy="135" r="9" fill="#22c55e" opacity="0.75" /><circle cx="200" cy="135" r="9" fill="none" stroke="white" strokeWidth="1.5" /><text x="200" y="139" textAnchor="middle" fill="white" fontSize="7" fontWeight="bold" fontFamily="system-ui,sans-serif">82</text>
                   {/* Legend bar */}
                   <rect x="0" y="198" width="320" height="22" fill="rgba(15,23,42,0.75)" />
-                  <circle cx="14" cy="209" r="4" fill="#ef4444" /><text x="22" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
-                  <circle cx="55" cy="209" r="4" fill="#eab308" /><text x="63" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Fair</text>
-                  <circle cx="95" cy="209" r="4" fill="#22c55e" /><text x="103" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
-                  <circle cx="140" cy="209" r="4" fill="#3b82f6" /><text x="148" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
+                  <circle cx="10" cy="209" r="3" fill="#ef4444" /><text x="16" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Ext poor</text>
+                  <circle cx="50" cy="209" r="3" fill="#f97316" /><text x="56" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
+                  <circle cx="85" cy="209" r="3" fill="#eab308" /><text x="91" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Moderate</text>
+                  <circle cx="132" cy="209" r="3" fill="#22c55e" /><text x="138" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
+                  <circle cx="165" cy="209" r="3" fill="#3b82f6" /><text x="171" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
                 </svg>
               </div>
 

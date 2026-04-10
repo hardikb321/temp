@@ -13,10 +13,11 @@ interface StateWQI {
 
 function getWqiColor(wqi: number | null) {
   if (wqi == null) return { color: "#6b7280", bgColor: "#6b728026", label: "Unknown" };
-  if (wqi < 40)   return { color: "#ef4444", bgColor: "#ef444426", label: "Poor" };
-  if (wqi < 65)   return { color: "#f59e0b", bgColor: "#f59e0b26", label: "Fair" };
-  if (wqi < 85)   return { color: "#22c55e", bgColor: "#22c55e26", label: "Good" };
-  return           { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
+  if (wqi <= 50)   return { color: "#3b82f6", bgColor: "#3b82f626", label: "Excellent" };
+  if (wqi <= 100)  return { color: "#22c55e", bgColor: "#22c55e26", label: "Good" };
+  if (wqi <= 150)  return { color: "#eab308", bgColor: "#eab30826", label: "Moderate" };
+  if (wqi <= 200)  return { color: "#f97316", bgColor: "#f9731626", label: "Poor" };
+  return           { color: "#ef4444", bgColor: "#ef444426", label: "Extremely poor" };
 }
 
 // Converts a state name to a file-safe slug: "Uttar Pradesh" → "uttar-pradesh"
@@ -600,10 +601,11 @@ export function Dashboard() {
                     </text>
                     {/* Legend bar */}
                     <rect x="0" y="198" width="320" height="22" fill="rgba(15,23,42,0.75)" />
-                    <circle cx="14" cy="209" r="4" fill="#ef4444" /><text x="22" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
-                    <circle cx="55" cy="209" r="4" fill="#eab308" /><text x="63" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Fair</text>
-                    <circle cx="95" cy="209" r="4" fill="#22c55e" /><text x="103" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
-                    <circle cx="140" cy="209" r="4" fill="#3b82f6" /><text x="148" y="213" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
+                    <circle cx="10" cy="209" r="3" fill="#ef4444" /><text x="16" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Ext poor</text>
+                    <circle cx="50" cy="209" r="3" fill="#f97316" /><text x="56" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Poor</text>
+                    <circle cx="85" cy="209" r="3" fill="#eab308" /><text x="91" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Moderate</text>
+                    <circle cx="132" cy="209" r="3" fill="#22c55e" /><text x="138" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Good</text>
+                    <circle cx="165" cy="209" r="3" fill="#3b82f6" /><text x="171" y="212" fill="#cbd5e1" fontSize="7" fontFamily="system-ui,sans-serif">Excellent</text>
                   </svg>
                 </div>
 

@@ -57,7 +57,7 @@ export interface Marker {
   bod?: number;
   conductivity?: number;
   aod?: number;
-  /** 22 essential parameters (user fills them in the modal). */
+  /** 11 essential parameters (user fills them in the modal). */
   essentialParameters: Record<string, number>;
   timestamp: Date;
   observedAt?: Date;
@@ -67,26 +67,16 @@ type EssentialParamKey = string;
 
 const ESSENTIAL_PARAMETERS: { key: EssentialParamKey; label: string; unit?: string }[] = [
   { key: "Arsenic (As) [mg/L]",                  label: "Arsenic (As)",                 unit: "[mg/L]" },
-  { key: "Cadmium (Cd) [mg/L]",                  label: "Cadmium (Cd)",                 unit: "[mg/L]" },
-  { key: "Calcium (Ca) [mg/L]",                  label: "Calcium (Ca)",                 unit: "[mg/L]" },
   { key: "Chloride (Cl) [mg/L]",                 label: "Chloride (Cl)",                unit: "[mg/L]" },
-  { key: "Chlorine (Cl2) [mg/L]",                label: "Chlorine (Cl2)",               unit: "[mg/L]" },
   { key: "Dissolved Oxygen (DO) [mg/L]",         label: "Dissolved Oxygen (DO)",        unit: "[mg/L]" },
   { key: "Fecal Coliform [MPN/100mL]",           label: "Fecal Coliform",               unit: "[MPN/100mL]" },
   { key: "Fluoride (F) [mg/L]",                  label: "Fluoride (F)",                 unit: "[mg/L]" },
   { key: "Iron (Fe) [mg/L]",                     label: "Iron (Fe)",                    unit: "[mg/L]" },
-  { key: "Lead (Pb) [mg/L]",                     label: "Lead (Pb)",                    unit: "[mg/L]" },
-  { key: "Magnesium (Mg) [mg/L]",                label: "Magnesium (Mg)",               unit: "[mg/L]" },
-  { key: "Manganese (Mn) [mg/L]",                label: "Manganese (Mn)",               unit: "[mg/L]" },
-  { key: "Nickel (Ni) [mg/L]",                   label: "Nickel (Ni)",                  unit: "[mg/L]" },
   { key: "Nitrate (NO3) Nitrogen [mg/L]",        label: "Nitrate (NO3) Nitrogen",       unit: "[mg/L]" },
   { key: "pH",                                   label: "pH",                           unit: "" },
-  { key: "Total Alkalinity as CaCO3 [mg/L]",    label: "Total Alkalinity as CaCO3",    unit: "[mg/L]" },
-  { key: "Total Coliforms [MPN/100mL]",          label: "Total Coliforms",              unit: "[MPN/100mL]" },
   { key: "Total Dissolved Solids (TDS) [mg/L]", label: "Total Dissolved Solids (TDS)", unit: "[mg/L]" },
   { key: "Total Hardness as CaCO3 [mg/L]",      label: "Total Hardness as CaCO3",      unit: "[mg/L]" },
   { key: "Turbidity [NTU]",                      label: "Turbidity",                    unit: "[NTU]" },
-  { key: "Zinc (Zn) [mg/L]",                     label: "Zinc (Zn)",                    unit: "[mg/L]" },
 ];
 
 export interface Session {
@@ -1264,11 +1254,13 @@ export function MyMap({
             tileUrl={WATER_TYPE_MARKER_TILE_URL[waterType ?? "lake"]}
             // Optional: colour circles by water quality index.
             // Remove wqiColorStops to use the flat clusterColor / pointColor instead.
+            clusterColor="#3b82f6"
+            pointColor="#3b82f6"
             wqiColorStops={[
-              [40,  "#ef4444"],   // poor      — red
-              [65,  "#eab308"],   // moderate  — yellow/orange
-              [85,  "#22c55e"],   // good      — green
-              [100, "#06b6d4"],   // excellent — cyan/blue
+              [50.0001, "#22c55e"],   // > 50 -> green
+              [100.0001, "#eab308"],  // > 100 -> yellow
+              [150.0001, "#f97316"],  // > 150 -> orange
+              [200.0001, "#ef4444"],  // > 200 -> red
             ]}
             onClusterClick={(coords, pointCount) => {
               void pointCount;
@@ -1388,13 +1380,14 @@ export function MyMap({
             null
           )}
         </Map>
-        <div className="absolute bottom-8 left-3 z-10 rounded-lg border border-border bg-card/90 backdrop-blur-sm px-3 py-2 shadow-lg text-xs space-y-1.5">
+        <div className="absolute bottom-2 left-3 z-10 rounded-lg border border-border bg-card/90 backdrop-blur-sm px-3 py-2 shadow-lg text-xs space-y-1.5">
   <p className="font-semibold text-foreground mb-1">WQI Legend</p>
   {[
-    { color: "#ef4444", label: "Poor", range: "< 40" },
-    { color: "#f59e0b", label: "Fair", range: "40 – 65" },
-    { color: "#22c55e", label: "Good", range: "65 – 85" },
-    { color: "#3b82f6", label: "Excellent", range: "85 – 100" },
+    { color: "#3b82f6", label: "Excellent", range: "<= 50" },
+    { color: "#22c55e", label: "Good", range: "51 – 100" },
+    { color: "#eab308", label: "Moderate", range: "101 – 150" },
+    { color: "#f97316", label: "Poor", range: "151 – 200" },
+    { color: "#ef4444", label: "Extremely poor", range: "> 200" },
   ].map(({ color, label, range }) => (
     <div key={label} className="flex items-center gap-2">
       <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
@@ -1632,7 +1625,7 @@ export function MyMap({
                   : "Fill essential parameters"}
               </Button>
               <p className="text-xs text-muted-foreground mt-2">
-                All 22 essential parameters are mandatory (decimals allowed).
+                All 11 essential parameters are mandatory (decimals allowed).
               </p>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Essential filled:{" "}
