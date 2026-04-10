@@ -121,10 +121,7 @@ function rowToMarker(row: MarkerRow): Marker {
   };
 
   // Additional optional params — also try both key styles
-  const tempRaw   = p["temperature"]  ?? p["Temperature (°C)"];
-  const bodRaw    = p["bod"]          ?? p["BOD (mg/L)"];
-  const condRaw   = p["conductivity"] ?? p["Conductivity (μS/cm)"];
-  const aodRaw    = p["aod"]          ?? p["AOD"];
+  
 
   return {
     id: `${row.river_id ?? row.lake_id}-${row.lat}-${row.lng}-${row.created_at}`,
@@ -134,10 +131,10 @@ function rowToMarker(row: MarkerRow): Marker {
     riverId:    row.river_id ?? undefined,
     turbidity:  essentialParameters["Turbidity [NTU]"],
     ph:         essentialParameters["pH"],
-    temperature: tempRaw != null ? Number(tempRaw) : undefined,
-    bod:         bodRaw  != null ? Number(bodRaw)  : undefined,
-    conductivity: condRaw != null ? Number(condRaw) : undefined,
-    aod:          aodRaw  != null ? Number(aodRaw)  : undefined,
+    
+    
+    
+    
     essentialParameters,
     timestamp: new Date(row.created_at),
   };

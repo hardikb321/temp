@@ -52,10 +52,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   // Fetch point history when marker changes
   useEffect(() => {
     const objectId = marker?.lakeId || marker?.riverId;
-    if (!objectId) {
-      setHistoryEntries([]);
-      return;
-    }
+    if (!objectId) { return; }
 
     setLoading(true);
     setError(null);
@@ -95,11 +92,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   // Fetch chart data when marker changes
   useEffect(() => {
     const objectId = marker?.lakeId || marker?.riverId;
-    if (!objectId) {
-      setWqiData([]);
-      setChartYear(null);
-      return;
-    }
+    if (!objectId) { return; }
 
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
@@ -111,7 +104,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         return r.json();
       })
       .then((json) => {
-        let years: number[] = json?.data?.length ? json.data : [new Date().getFullYear()];
+        const years: number[] = json?.data?.length ? json.data : [new Date().getFullYear()];
         // Sort descending so the most recent year is first
         years.sort((a, b) => b - a);
         const year = years[0];

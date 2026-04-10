@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronDown, ChevronUp, Map, Activity } from "lucide-react";
 import type { Marker } from "@/components/MyMap";
 import { Navbar } from "@/components/Navbar";
 import { PointChartsPanel } from "@/components/PointChartsPanel";
+import { CcmeChartPanel } from "@/components/CcmeChartPanel";
 import type { WaterType } from "@/types";
 
 interface StateWQI {
@@ -396,9 +397,7 @@ export function PointDetailPage() {
       });
   }, [waterType]);
 
-  // TEMP TEST — change 25 to: 75, 125, 175, 225 for other categories
-// line 392 — original
-const latestEntry = historyEntries[0] ?? null;
+  const latestEntry = historyEntries[0] ?? null;
 
   if (!marker || pageError) {
     return (
@@ -1012,18 +1011,12 @@ const latestEntry = historyEntries[0] ?? null;
               </p>
             </div>
             
-            {/* We'll use PointChartsPanel but eventually wire it up to a CCME data source.
-                For now, its data will remain blank/unconfigured as requested. */}
-            <PointChartsPanel
-              availableYears={allYearsData.map(y => y.year)}
-              year={selectedYear}
-              onYearChange={setSelectedYear}
+            <CcmeChartPanel
               lakeId={marker.lakeId ?? null}
               riverId={marker.riverId ?? null}
               waterType={waterType}
               lat={marker.latitude}
               lng={marker.longitude}
-              isCcme={true} 
             />
           </div>
         )}

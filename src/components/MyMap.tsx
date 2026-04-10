@@ -53,10 +53,8 @@ export interface Marker {
   state_name?: string;
   turbidity: number;
   ph: number;
-  temperature?: number;
-  bod?: number;
-  conductivity?: number;
-  aod?: number;
+  /** Additional dynamic parameters filled in the modal */
+  additionalParameters: Record<string, number>;
   /** 11 essential parameters (user fills them in the modal). */
   essentialParameters: Record<string, number>;
   timestamp: Date;
@@ -88,10 +86,85 @@ export interface Session {
 }
 
 const ADDITIONAL_PARAMETERS = [
-  { key: "conductivity", label: "Conductivity (μS/cm)", placeholder: "e.g., 500" },
-  { key: "aod", label: "AOD", placeholder: "e.g., 0.5" },
-  { key: "temperature", label: "Temperature (°C)", placeholder: "e.g., 25.5" },
-  { key: "bod", label: "BOD (mg/L)", placeholder: "e.g., 3.0" },
+  { key: "Aldrin [mg/L]", label: "Aldrin [mg/L]", placeholder: "" },
+  { key: "Aluminium (Al) [mg/L]", label: "Aluminium (Al) [mg/L]", placeholder: "" },
+  { key: "Ammonia(NH3) Nitrogen [mg/L]", label: "Ammonia(NH3) Nitrogen [mg/L]", placeholder: "" },
+  { key: "Antimony (Sb) [mg/L]", label: "Antimony (Sb) [mg/L]", placeholder: "" },
+  { key: "Barium (Ba) [mg/L]", label: "Barium (Ba) [mg/L]", placeholder: "" },
+  { key: "Benzene [mg/L]", label: "Benzene [mg/L]", placeholder: "" },
+  { key: "Benzene Hexachloride (BHC) [mg/L]", label: "Benzene Hexachloride (BHC) [mg/L]", placeholder: "" },
+  { key: "Bicarbonate (HCO3) [mg/L]", label: "Bicarbonate (HCO3) [mg/L]", placeholder: "" },
+  { key: "Biochemical Oxygen Demand (BOD) over 3 days at 27° C [mg/L]", label: "Biochemical Oxygen Demand (BOD) over 3 days at 27° C [mg/L]", placeholder: "" },
+  { key: "Biochemical Oxygen Demand (BOD) over 5 days at 20° C [mg/L]", label: "Biochemical Oxygen Demand (BOD) over 5 days at 20° C [mg/L]", placeholder: "" },
+  { key: "Boron (B) [mg/L]", label: "Boron (B) [mg/L]", placeholder: "" },
+  { key: "Bromate (BrO3) [mg/L]", label: "Bromate (BrO3) [mg/L]", placeholder: "" },
+  { key: "Bromodichloromethane (BDCM) [mg/L]", label: "Bromodichloromethane (BDCM) [mg/L]", placeholder: "" },
+  { key: "Bromoform (CHBr3) [mg/L]", label: "Bromoform (CHBr3) [mg/L]", placeholder: "" },
+  { key: "Cadmium (Cd) [mg/L]", label: "Cadmium (Cd) [mg/L]", placeholder: "" },
+  { key: "Calcium (Ca) [mg/L]", label: "Calcium (Ca) [mg/L]", placeholder: "" },
+  { key: "Carbofuran [mg/L]", label: "Carbofuran [mg/L]", placeholder: "" },
+  { key: "Carbon Tetrachloride (CCl4) [mg/L]", label: "Carbon Tetrachloride (CCl4) [mg/L]", placeholder: "" },
+  { key: "Carbon-14 [Bq/L]", label: "Carbon-14 [Bq/L]", placeholder: "" },
+  { key: "Chemical Oxygen Demand (COD) [mg/L]", label: "Chemical Oxygen Demand (COD) [mg/L]", placeholder: "" },
+  { key: "Chloramines [mg/L]", label: "Chloramines [mg/L]", placeholder: "" },
+  { key: "Chlorate (ClO3) [mg/L]", label: "Chlorate (ClO3) [mg/L]", placeholder: "" },
+  { key: "Chlordane [mg/L]", label: "Chlordane [mg/L]", placeholder: "" },
+  { key: "Chlorine (Cl2) [mg/L]", label: "Chlorine (Cl2) [mg/L]", placeholder: "" },
+  { key: "Chlorite (ClO2) [mg/L]", label: "Chlorite (ClO2) [mg/L]", placeholder: "" },
+  { key: "Chloroform (CHCl3) [mg/L]", label: "Chloroform (CHCl3) [mg/L]", placeholder: "" },
+  { key: "Chlorophyll-a [mg/L]", label: "Chlorophyll-a [mg/L]", placeholder: "" },
+  { key: "Chlorotoluron [mg/L]", label: "Chlorotoluron [mg/L]", placeholder: "" },
+  { key: "Chlorpyrifos [mg/L]", label: "Chlorpyrifos [mg/L]", placeholder: "" },
+  { key: "Chromium (Cr) [mg/L]", label: "Chromium (Cr) [mg/L]", placeholder: "" },
+  { key: "Copper (Cu) [mg/L]", label: "Copper (Cu) [mg/L]", placeholder: "" },
+  { key: "Cyanide (CN) [mg/L]", label: "Cyanide (CN) [mg/L]", placeholder: "" },
+  { key: "Cynazine [mg/L]", label: "Cynazine [mg/L]", placeholder: "" },
+  { key: "Dichloro-Diphenyl-Trichloroethane (DDT) [mg/L]", label: "Dichloro-Diphenyl-Trichloroethane (DDT) [mg/L]", placeholder: "" },
+  { key: "Dieldrin [mg/L]", label: "Dieldrin [mg/L]", placeholder: "" },
+  { key: "Dimethonate [mg/L]", label: "Dimethonate [mg/L]", placeholder: "" },
+  { key: "Edetic acid (EDTA) [mg/L]", label: "Edetic acid (EDTA) [mg/L]", placeholder: "" },
+  { key: "Electrical Conductivity at 25° C [μS/cm]", label: "Electrical Conductivity at 25° C [μS/cm]", placeholder: "" },
+  { key: "Endosulfan [mg/L]", label: "Endosulfan [mg/L]", placeholder: "" },
+  { key: "Endrin [mg/L]", label: "Endrin [mg/L]", placeholder: "" },
+  { key: "Epichlorohydrin [mg/L]", label: "Epichlorohydrin [mg/L]", placeholder: "" },
+  { key: "Ethyl Benzene [mg/L]", label: "Ethyl Benzene [mg/L]", placeholder: "" },
+  { key: "Fecal Coliform [CFU/100mL]", label: "Fecal Coliform [CFU/100mL]", placeholder: "" },
+  { key: "Fecal Streptococci [CFU/100mL]", label: "Fecal Streptococci [CFU/100mL]", placeholder: "" },
+  { key: "Fecal Streptococci [MPN/100mL]", label: "Fecal Streptococci [MPN/100mL]", placeholder: "" },
+  { key: "Isoproturon [mg/L]", label: "Isoproturon [mg/L]", placeholder: "" },
+  { key: "Lead (Pb) [mg/L]", label: "Lead (Pb) [mg/L]", placeholder: "" },
+  { key: "Lindane [mg/L]", label: "Lindane [mg/L]", placeholder: "" },
+  { key: "Magnesium (Mg) [mg/L]", label: "Magnesium (Mg) [mg/L]", placeholder: "" },
+  { key: "Manganese (Mn) [mg/L]", label: "Manganese (Mn) [mg/L]", placeholder: "" },
+  { key: "Mercury (Hg) [mg/L]", label: "Mercury (Hg) [mg/L]", placeholder: "" },
+  { key: "Molybdenum (Mo) [mg/L]", label: "Molybdenum (Mo) [mg/L]", placeholder: "" },
+  { key: "Nickel (Ni) [mg/L]", label: "Nickel (Ni) [mg/L]", placeholder: "" },
+  { key: "Nitrite(NO2) Nitrogen [mg/L]", label: "Nitrite(NO2) Nitrogen [mg/L]", placeholder: "" },
+  { key: "Orthophosphate Phosphorous [mg/L]", label: "Orthophosphate Phosphorous [mg/L]", placeholder: "" },
+  { key: "Permethrin [mg/L]", label: "Permethrin [mg/L]", placeholder: "" },
+  { key: "Phenols [mg/L]", label: "Phenols [mg/L]", placeholder: "" },
+  { key: "Polychlorinated Biphenyls (PCB) [mg/L]", label: "Polychlorinated Biphenyls (PCB) [mg/L]", placeholder: "" },
+  { key: "Polycyclic Aromatic Hydrocarbons (PAH) [mg/L]", label: "Polycyclic Aromatic Hydrocarbons (PAH) [mg/L]", placeholder: "" },
+  { key: "Pyriproxyfen [mg/L]", label: "Pyriproxyfen [mg/L]", placeholder: "" },
+  { key: "Radon (Rn) [Bq/L]", label: "Radon (Rn) [Bq/L]", placeholder: "" },
+  { key: "Residual Sodium Carbonate (RSC) [mg/L]", label: "Residual Sodium Carbonate (RSC) [mg/L]", placeholder: "" },
+  { key: "Selenium (Se) [mg/L]", label: "Selenium (Se) [mg/L]", placeholder: "" },
+  { key: "Silver (Ag) [mg/L]", label: "Silver (Ag) [mg/L]", placeholder: "" },
+  { key: "Sodium (Na) [mg/L]", label: "Sodium (Na) [mg/L]", placeholder: "" },
+  { key: "Sodium Adsorption Ratio (SAR)", label: "Sodium Adsorption Ratio (SAR)", placeholder: "" },
+  { key: "Strontium (Sr) [mg/L]", label: "Strontium (Sr) [mg/L]", placeholder: "" },
+  { key: "Styrene [mg/L]", label: "Styrene [mg/L]", placeholder: "" },
+  { key: "Sulphate (SO4) [mg/L]", label: "Sulphate (SO4) [mg/L]", placeholder: "" },
+  { key: "Toluene [mg/L]", label: "Toluene [mg/L]", placeholder: "" },
+  { key: "Total Alkalinity as CaCO3 [mg/L]", label: "Total Alkalinity as CaCO3 [mg/L]", placeholder: "" },
+  { key: "Total Coliforms [CFU/100mL]", label: "Total Coliforms [CFU/100mL]", placeholder: "" },
+  { key: "Total Coliforms [MPN/100mL]", label: "Total Coliforms [MPN/100mL]", placeholder: "" },
+  { key: "Total Organic Carbon [mg/L]", label: "Total Organic Carbon [mg/L]", placeholder: "" },
+  { key: "Total Phosphorus [mg/L]", label: "Total Phosphorus [mg/L]", placeholder: "" },
+  { key: "Total Suspended Solids (TSS) [mg/L]", label: "Total Suspended Solids (TSS) [mg/L]", placeholder: "" },
+  { key: "Tritium (H-3) [Bq/L]", label: "Tritium (H-3) [Bq/L]", placeholder: "" },
+  { key: "Uranium(U) [mg/L]", label: "Uranium(U) [mg/L]", placeholder: "" },
+  { key: "Zinc (Zn) [mg/L]", label: "Zinc (Zn) [mg/L]", placeholder: "" },
 ] as const;
 
 type AdditionalParamKey = typeof ADDITIONAL_PARAMETERS[number]["key"];
@@ -387,8 +460,7 @@ function generateSampleMarkers(count: number, centerLng: number, centerLat: numb
       lakeId,
       turbidity: turbidityVal,
       ph: phVal,
-      temperature: randomInRange(15, 32),
-      bod: randomInRange(1, 12),
+      additionalParameters: {},
       timestamp: new Date(),
       essentialParameters,
     });
@@ -573,11 +645,7 @@ export function MyMap({
     setLongitude("");
     setTurbidity("");
     setPh("");
-    setTemperature("");
-    setBod("");
-    setMarkerColor("red");
-    setConductivity("");
-    setAod("");
+    setAdditionalParamValues(Object.fromEntries(Object.entries(marker.additionalParameters || {}).map(([k, v]) => [k, v.toString()])));
     setSelectedAdditionalParams([]);
     setEssentialDraft({});
     setEssentialError(null);
@@ -670,10 +738,7 @@ export function MyMap({
       lakeId: marker.lakeId,
       turbidity: marker.turbidity,
       ph: marker.ph,
-      temperature: marker.temperature,
-      bod: marker.bod,
-      conductivity: marker.conductivity,
-      aod: marker.aod,
+      additionalParameters: { ...marker.additionalParameters },
       timestamp: marker.timestamp.toISOString(),
     },
   });
