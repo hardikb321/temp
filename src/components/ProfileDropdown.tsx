@@ -131,10 +131,7 @@ function rowToMarker(row: MarkerRow): Marker {
     riverId:    row.river_id ?? undefined,
     turbidity:  essentialParameters["Turbidity [NTU]"],
     ph:         essentialParameters["pH"],
-    
-    
-    
-    
+    additionalParameters: {},
     essentialParameters,
     timestamp: new Date(row.created_at),
   };

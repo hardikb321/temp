@@ -73,23 +73,14 @@ export function PointChartsPanel({
 
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
-    
+
     let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`;
     if (isCcme) {
-      url = `/api/${route}/marker-ccme-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`; // Assuming CCME endpoint
-    }
-
-    if (!url) {
-      setWqiData([]);
-      setParametersData({});
-      setLoading(false);
-      setError("Endpoint to be configured later.");
-      return;
+      url = `/api/${route}/marker-ccme-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${lat}&lng=${lng}&year=${selectedYear}`;
     }
 
     fetch(url)
       .then((r) => {
-        // Since backend might return 404 for CCME chart if not built, ignore error and return empty layout for CCME
         if (!r.ok) {
           if (isCcme && r.status === 404) return { data: { wqi: [], parameters: {} } };
           throw new Error(`HTTP ${r.status}`);
@@ -99,12 +90,11 @@ export function PointChartsPanel({
       .then((json) => {
         let wqiDataParsed = json?.data?.wqi ?? [];
         let paramsDataParsed = json?.data?.parameters ?? {};
-        
-        // Ensure F1, F2, F3 keys exist in CCME mode so the user can select them
+
         if (isCcme) {
-           if (!paramsDataParsed["F1"]) paramsDataParsed["F1"] = [];
-           if (!paramsDataParsed["F2"]) paramsDataParsed["F2"] = [];
-           if (!paramsDataParsed["F3"]) paramsDataParsed["F3"] = [];
+          if (!paramsDataParsed["F1"]) paramsDataParsed["F1"] = [];
+          if (!paramsDataParsed["F2"]) paramsDataParsed["F2"] = [];
+          if (!paramsDataParsed["F3"]) paramsDataParsed["F3"] = [];
         }
 
         setWqiData(wqiDataParsed);
@@ -120,11 +110,13 @@ export function PointChartsPanel({
       .finally(() => setLoading(false));
   }, [lakeId, riverId, waterType, lat, lng, selectedYear, isCcme]);
 
-  // WQI values (sparse)
+  // WQI values (sparse → 12-slot array)
   const wqiChartValues = useMemo(() => {
     const arr: (number | null)[] = new Array(12).fill(null);
     wqiData.forEach(({ month, avg_wqi }) => {
-      arr[month - 1] = parseFloat(avg_wqi.toFixed(1));
+      if (avg_wqi != null) {
+        arr[month - 1] = parseFloat(Number(avg_wqi).toFixed(1));
+      }
     });
     return arr;
   }, [wqiData]);
@@ -148,7 +140,9 @@ export function PointChartsPanel({
       const color = PARAM_COLORS[idx % PARAM_COLORS.length];
       const arr: (number | null)[] = new Array(12).fill(null);
       (parametersData[param] ?? []).forEach(({ month, avg_value }) => {
-        arr[month - 1] = parseFloat(avg_value.toFixed(2));
+        if (avg_value != null) {
+          arr[month - 1] = parseFloat(Number(avg_value).toFixed(2));
+        }
       });
       return {
         label: param,
@@ -160,24 +154,22 @@ export function PointChartsPanel({
         tension: 0.35,
         fill: false,
         spanGaps: true,
-        yAxisID: "y1", // secondary axis so scales don't clash
+        // Each param gets its own hidden axis so scales never interfere
+        yAxisID: `y_param_${idx}`,
       };
     });
 
     return [wqiDataset, ...paramDatasets];
   }, [wqiChartValues, activeParams, parametersData, selectedYear]);
 
-  // Build / rebuild the single chart whenever datasets change
+  // ─── INITIALIZE chart once on mount ───────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; }
-
-    const hasParams = activeParams.length > 0;
 
     chartRef.current = new Chart(canvas, {
       type: "line",
-      data: { labels: MONTH_LABELS, datasets },
+      data: { labels: MONTH_LABELS, datasets: [] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -211,28 +203,49 @@ export function PointChartsPanel({
             grid: { color: "rgba(161,161,170,0.15)" },
             title: { display: true, text: "WQI", color: "#3b82f6", font: { size: 11 } },
           },
-          // Only show right axis when params are active
-          ...(hasParams
-            ? {
-                y1: {
-                  position: "right",
-                  ticks: { color: "#a1a1aa" },
-                  grid: { drawOnChartArea: false },
-                  title: {
-                    display: true,
-                    text: isCcme ? "F1/F2/F3 Value" : (activeParams.length === 1 ? activeParams[0] : "Parameters"),
-                    color: "#a1a1aa",
-                    font: { size: 11 },
-                  },
-                },
-              }
-            : {}),
         },
       },
     });
 
-    return () => { chartRef.current?.destroy(); chartRef.current = null; };
-  }, [datasets, activeParams, isCcme]);
+    return () => {
+      chartRef.current?.destroy();
+      chartRef.current = null;
+    };
+  }, []); // ← empty deps: create once, never recreate
+
+  // ─── UPDATE chart data & scales whenever datasets / activeParams change ───
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    // Replace datasets in-place
+    chart.data.datasets = datasets as typeof chart.data.datasets;
+
+    // Rebuild per-param hidden axes (one per active param so their scales never clash)
+    // First, remove all old y_param_* axes
+    if (chart.options.scales) {
+      Object.keys(chart.options.scales).forEach((key) => {
+        if (key.startsWith("y_param_")) {
+          delete chart.options.scales![key];
+        }
+      });
+      // Add a hidden independent axis for each active param
+      activeParams.forEach((_param, idx) => {
+        chart.options.scales![`y_param_${idx}`] = {
+          display: false,   // no visual axis — tooltip still reads values correctly
+          position: "right",
+          grid: { drawOnChartArea: false },
+        };
+      });
+    }
+
+    chart.update("active"); // "active" keeps animations smooth
+    // After loading ends the container becomes visible — resize so Chart.js
+    // fills the correct dimensions (was hidden / 0px during loading)
+    if (!loading) {
+      chart.resize();
+    }
+  }, [datasets, activeParams, isCcme, loading]);
 
   // Add a parameter (select handler)
   const handleParamAdd = (param: string) => {
@@ -277,13 +290,13 @@ export function PointChartsPanel({
       <div>
         <p className="text-xs text-muted-foreground mb-2">Month vs WQI &amp; Parameters (hover to see values)</p>
         <div className="rounded-lg border border-border bg-muted/10 p-3">
-          {loading ? (
+          {loading && (
             <p className="text-xs text-muted-foreground text-center py-8 animate-pulse">Loading chart…</p>
-          ) : (
-            <div className="h-64 w-full">
-              <canvas ref={canvasRef} />
-            </div>
           )}
+          {/* Always keep canvas in the DOM so Chart.js can measure it correctly */}
+          <div className="h-64 w-full" style={{ display: loading ? "none" : "block" }}>
+            <canvas ref={canvasRef} />
+          </div>
         </div>
       </div>
 
@@ -324,13 +337,11 @@ export function PointChartsPanel({
                       color: color.border,
                     }}
                   >
-                    {/* Colored dot matching the chart line */}
                     <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      className="w-2 h-2 rounded-full shrink-0"
                       style={{ backgroundColor: color.border }}
                     />
                     {param}
-                    {/* Remove button */}
                     <button
                       type="button"
                       onClick={() => handleParamRemove(param)}

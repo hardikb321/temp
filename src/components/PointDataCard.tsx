@@ -18,6 +18,13 @@ interface MonthlyWqi {
   avg_wqi: number;
 }
 
+interface CcmeData {
+  ccme_wqi: number | null;
+  f1: number | null;
+  f2: number | null;
+  f3: number | null;
+}
+
 interface PointDataCardProps {
   marker: Marker | null;
   waterType?: WaterType;
@@ -36,6 +43,15 @@ function getWqiStatus(wqi: number | null | undefined): { label: string; dotColor
   return { label: "Extremely poor", dotColor: "#ef4444" };
 }
 
+function getCcmeStatus(wqi: number | null | undefined): { label: string; dotColor: string } {
+  if (wqi == null) return { label: "Unknown", dotColor: "#6b7280" };
+  if (wqi < 50) return { label: "Poor", dotColor: "#ef4444" };
+  if (wqi < 65) return { label: "Marginal", dotColor: "#f97316" };
+  if (wqi < 80) return { label: "Fair", dotColor: "#eab308" };
+  if (wqi < 95) return { label: "Good", dotColor: "#22c55e" };
+  return { label: "Excellent", dotColor: "#1e3a8a" };
+}
+
 export function PointDataCard({ marker, waterType = "lake", onClose }: PointDataCardProps) {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -48,6 +64,9 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   const [chartYear, setChartYear] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"chart" | "history">("chart");
   const [wqiType, setWqiType] = useState<"standard" | "ccme">("standard");
+  const [ccmeData, setCcmeData] = useState<CcmeData | null>(null);
+  const [loadingCcme, setLoadingCcme] = useState(false);
+  const [ccmeError, setCcmeError] = useState<string | null>(null);
 
   // Fetch point history when marker changes
   useEffect(() => {
@@ -97,6 +116,31 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
 
+    // Fetch CCME data
+    if (wqiType === "ccme") {
+      setLoadingCcme(true);
+      setCcmeError(null);
+      fetch(`/api/${route}/latest-ccme?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
+        .then((r) => {
+          if (!r.ok) throw new Error("Failed to load CCME data");
+          return r.json();
+        })
+        .then((json) => {
+          setCcmeData({
+            ccme_wqi: json?.data?.ccme_wqi ?? null,
+            f1: json?.data?.f1 ?? null,
+            f2: json?.data?.f2 ?? null,
+            f3: json?.data?.f3 ?? null,
+          });
+        })
+        .catch((err) => {
+          setCcmeError(err instanceof Error ? err.message : "Error fetching CCME data");
+          setCcmeData(null);
+        })
+        .finally(() => setLoadingCcme(false));
+      return;
+    }
+
     // First, fetch available years
     fetch(`/api/${route}/marker-years?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
       .then((r) => {
@@ -111,15 +155,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         setChartYear(year);
 
         let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
-        if (wqiType === "ccme") {
-          url = ""; // CCME not implemented yet
-        }
-
-        if (!url) {
-          setWqiData([]);
-          return;
-        }
-
+        
         fetch(url)
           .then((r) => r.json())
           .then((jsonChart) => setWqiData(jsonChart?.data?.wqi ?? []))
@@ -130,12 +166,6 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         setChartYear(year);
         
         let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
-        if (wqiType === "ccme") url = "";
-        
-        if (!url) {
-          setWqiData([]);
-          return;
-        }
         
         fetch(url)
           .then((r) => r.json())
@@ -162,7 +192,9 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   const wqiChartValues = useMemo(() => {
     const arr: (number | null)[] = new Array(12).fill(null);
     wqiData.forEach(({ month, avg_wqi }) => {
-      arr[month - 1] = parseFloat(avg_wqi.toFixed(1));
+      if (avg_wqi != null) {
+        arr[month - 1] = parseFloat(Number(avg_wqi).toFixed(1));
+      }
     });
     return arr;
   }, [wqiData]);
@@ -280,9 +312,9 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   if (!marker) return null;
 
   const latestWqi = wqiType === "ccme" 
-    ? latestEntry?.wqi 
+    ? ccmeData?.ccme_wqi
     : (latestEntry?.wqi ?? marker.essentialParameters?.wqi);
-  const statusInfo = getWqiStatus(latestWqi);
+  const statusInfo = wqiType === "ccme" ? getCcmeStatus(latestWqi) : getWqiStatus(latestWqi);
 
   // Colored accent based on WQI status
   const accentColor = statusInfo.dotColor;
@@ -297,7 +329,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         className="absolute top-4 left-4 z-40"
       >
         <div
-          className="w-[300px] max-h-[calc(100svh-12rem)] rounded-xl overflow-y-auto shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow custom-scrollbar"
+          className="w-75 max-h-[calc(100svh-18rem)] rounded-xl overflow-y-auto shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow custom-scrollbar"
           style={{ boxShadow: `0 0 0 2px ${accentColor}22, 0 8px 32px rgba(0,0,0,0.35)` }}
         >
           {/* Colored top accent bar */}
@@ -415,7 +447,77 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
               ))}
             </div>
 
-            {activeTab === "chart" ? (
+            {wqiType === "ccme" ? (
+              <div className="rounded-lg bg-muted/10 p-3 flex flex-col gap-3 min-h-36">
+                {loadingCcme ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-[10px] text-muted-foreground animate-pulse">Loading CCME data…</p>
+                  </div>
+                ) : ccmeError ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-[10px] text-destructive text-center">{ccmeError}</p>
+                  </div>
+                ) : !ccmeData || ccmeData.ccme_wqi == null ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-[10px] text-muted-foreground text-center">No CCME data available</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-muted/20 border border-border/30 rounded py-1.5 flex flex-col justify-center">
+                        <span className="text-[9px] text-muted-foreground uppercase">F1 (Scope)</span>
+                        <span className="text-[11px] font-semibold text-foreground">
+                          {ccmeData.f1 != null ? Number(ccmeData.f1).toFixed(1) : "—"}
+                        </span>
+                      </div>
+                      <div className="bg-muted/20 border border-border/30 rounded py-1.5 flex flex-col justify-center">
+                        <span className="text-[9px] text-muted-foreground uppercase">F2 (Frequency)</span>
+                        <span className="text-[11px] font-semibold text-foreground">
+                          {ccmeData.f2 != null ? Number(ccmeData.f2).toFixed(1) : "—"}
+                        </span>
+                      </div>
+                      <div className="bg-muted/20 border border-border/30 rounded py-1.5 flex flex-col justify-center">
+                        <span className="text-[9px] text-muted-foreground uppercase">F3 (Amplitude)</span>
+                        <span className="text-[11px] font-semibold text-foreground">
+                          {ccmeData.f3 != null ? Number(ccmeData.f3).toFixed(1) : "—"}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-1">
+                      <div className="flex justify-between items-end mb-1 px-0.5">
+                        <span className="text-[10px] font-medium text-muted-foreground">CCME Scale</span>
+                        <span className="text-[10px] font-bold" style={{ color: getCcmeStatus(ccmeData.ccme_wqi).dotColor }}>
+                          {Number(ccmeData.ccme_wqi).toFixed(1)} / 100
+                        </span>
+                      </div>
+                      
+                      {/* CCME Progress Bar */}
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex relative">
+                        {/* Marker pointer */}
+                        <div 
+                          className="absolute top-0 bottom-0 w-1 bg-white border border-black z-10 rounded-sm" 
+                          style={{ left: `calc(${Math.min(Math.max(ccmeData.ccme_wqi, 0), 100)}% - 2px)` }}
+                        />
+                        {/* Segments */}
+                        <div className="h-full w-[50%]" style={{ backgroundColor: "#ef4444" }} title="Poor (0-49)" />
+                        <div className="h-full w-[15%]" style={{ backgroundColor: "#f97316" }} title="Marginal (50-64)" />
+                        <div className="h-full w-[15%]" style={{ backgroundColor: "#eab308" }} title="Fair (65-79)" />
+                        <div className="h-full w-[15%]" style={{ backgroundColor: "#22c55e" }} title="Good (80-94)" />
+                        <div className="h-full w-[5%]" style={{ backgroundColor: "#1e3a8a" }} title="Excellent (95-100)" />
+                      </div>
+                      <div className="flex justify-between mt-1 px-1 opacity-70">
+                        <span className="text-[8px] text-muted-foreground w-[50%]">Poor</span>
+                        <span className="text-[8px] text-muted-foreground w-[15%] text-center">Marg.</span>
+                        <span className="text-[8px] text-muted-foreground w-[15%] text-center">Fair</span>
+                        <span className="text-[8px] text-muted-foreground w-[15%] text-center">Good</span>
+                        <span className="text-[8px] text-muted-foreground w-[5%] text-right">Exc.</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : activeTab === "chart" ? (
               loading ? (
                 <div className="h-36 rounded-lg bg-muted/10 flex items-center justify-center">
                   <p className="text-[10px] text-muted-foreground animate-pulse">Loading chart…</p>

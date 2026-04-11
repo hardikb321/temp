@@ -507,7 +507,6 @@ interface MyMapProps {
   submittedMarkers: Marker[];
   onDraftMarkersChange: (markers: Marker[]) => void;
   onSubmitDraftMarkers: (markers: Marker[]) => void;
-  onRejectDraftSession?: (markers: Marker[]) => void;
   onProcessingChange?: (locked: boolean) => void;
   mapRef?: React.RefObject<MapRef | null>;
   waterType?: WaterType;
@@ -522,7 +521,6 @@ export function MyMap({
   submittedMarkers,
   onDraftMarkersChange,
   onSubmitDraftMarkers,
-  onRejectDraftSession,
   onProcessingChange,
   mapRef: externalMapRef,
   waterType,
@@ -575,8 +573,7 @@ export function MyMap({
   const [longitude, setLongitude] = useState<string>("");
   const [turbidity, setTurbidity] = useState<string>("");
   const [ph, setPh] = useState<string>("");
-  const [temperature, setTemperature] = useState<string>("");
-  const [bod, setBod] = useState<string>("");
+  const [additionalParamValues, setAdditionalParamValues] = useState<Record<string, string>>({});
   const [isEssentialModalOpen, setIsEssentialModalOpen] = useState(false);
   const [essentialDraft, setEssentialDraft] = useState<Record<string, string>>({});
   const [essentialError, setEssentialError] = useState<string | null>(null);
@@ -584,8 +581,6 @@ export function MyMap({
   const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null);
   const [markerColor, setMarkerColor] = useState<MarkerColor>("red");
   const [selectedAdditionalParams, setSelectedAdditionalParams] = useState<AdditionalParamKey[]>([]);
-  const [conductivity, setConductivity] = useState<string>("");
-  const [aod, setAod] = useState<string>("");
   const [observedAt, setObservedAt] = useState<string>("");
   const [obsDate, setObsDate] = useState<string>("");
   const [obsHour, setObsHour] = useState<string>("");
@@ -645,7 +640,7 @@ export function MyMap({
     setLongitude("");
     setTurbidity("");
     setPh("");
-    setAdditionalParamValues(Object.fromEntries(Object.entries(marker.additionalParameters || {}).map(([k, v]) => [k, v.toString()])));
+    setAdditionalParamValues({});
     setSelectedAdditionalParams([]);
     setEssentialDraft({});
     setEssentialError(null);
@@ -690,8 +685,7 @@ export function MyMap({
     longitude !== "" ||
     turbidity !== "" ||
     ph !== "" ||
-    temperature !== "" ||
-    bod !== "";
+    Object.keys(additionalParamValues).length > 0;
   useEffect(() => {
     hasUnsavedChangesRef.current = formOrDraftDirty;
   }, [formOrDraftDirty]);
@@ -951,33 +945,19 @@ export function MyMap({
     const phVal = essentialParameters["pH"];
 
     // Optional additional parameters
-    let tempVal: number | undefined = undefined;
-    let bodVal: number | undefined = undefined;
-    if (selectedAdditionalParams.includes("temperature")) {
-      tempVal = parseFloat(temperature);
-      if (isNaN(tempVal)) {
-        alert("Please enter a valid value for Temperature");
+    const parsedAdditionalParams: Record<string, number> = {};
+    for (const key of selectedAdditionalParams) {
+      const valStr = additionalParamValues[key];
+      if (valStr === undefined || valStr === "") {
+        alert(`Please enter a valid value for ${key}`);
         return;
       }
-    }
-    if (selectedAdditionalParams.includes("bod")) {
-      bodVal = parseFloat(bod);
-      if (isNaN(bodVal as number)) {
-        alert("Please enter a valid value for BOD");
+      const numVal = parseFloat(valStr);
+      if (isNaN(numVal)) {
+        alert(`Please enter a valid number for ${key}`);
         return;
       }
-    }
-
-    const condVal = conductivity ? parseFloat(conductivity) : undefined;
-    const aodVal = aod ? parseFloat(aod) : undefined;
-
-    if (selectedAdditionalParams.includes("conductivity") && (conductivity === "" || isNaN(condVal!))) {
-      alert("Please enter a valid value for Conductivity");
-      return;
-    }
-    if (selectedAdditionalParams.includes("aod") && (aod === "" || isNaN(aodVal!))) {
-      alert("Please enter a valid value for AOD");
-      return;
+      parsedAdditionalParams[key] = numVal;
     }
 
     if (editingMarkerId) {
@@ -993,10 +973,7 @@ export function MyMap({
               riverId: resolvedRiverId ?? marker.riverId,
               turbidity: turb,
               ph: phVal,
-              temperature: tempVal,
-              bod: bodVal,
-              conductivity: condVal,
-              aod: aodVal,
+              additionalParameters: { ...marker.additionalParameters, ...parsedAdditionalParams },
               essentialParameters: { ...essentialParameters },
               observedAt: new Date(observedAt),
             }
@@ -1015,10 +992,7 @@ export function MyMap({
          riverId: resolvedRiverId ?? undefined,
          turbidity: turb,
          ph: phVal,
-        temperature: tempVal,
-        bod: bodVal,
-         conductivity: condVal,
-         aod: aodVal,
+         additionalParameters: { ...parsedAdditionalParams },
          timestamp: new Date(),
          observedAt: new Date(observedAt),
         essentialParameters: { ...essentialParameters },
@@ -1035,11 +1009,8 @@ export function MyMap({
     setLongitude("");
     setTurbidity("");
     setPh("");
-    setTemperature("");
-    setBod("");
+    setAdditionalParamValues({});
     setMarkerColor("red");
-    setConductivity("");
-    setAod("");
     setSelectedAdditionalParams([]);
     setEssentialDraft({});
     setEssentialParameters({});
@@ -1069,11 +1040,8 @@ export function MyMap({
       setLongitude("");
       setTurbidity("");
       setPh("");
-      setTemperature("");
-      setBod("");
+      setAdditionalParamValues({});
       setMarkerColor("red");
-      setConductivity("");
-      setAod("");
       setSelectedAdditionalParams([]);
       setEssentialDraft({});
       setEssentialParameters({});
@@ -1098,8 +1066,18 @@ export function MyMap({
     setMarkerColor(marker.color ?? "red");
     setTurbidity(marker.turbidity.toString());
     setPh(marker.ph.toString());
-    setTemperature(marker.temperature != null ? marker.temperature.toString() : "");
-    setBod(marker.bod != null ? marker.bod.toString() : "");
+    
+    // Set additional params from marker
+    if (marker.additionalParameters) {
+      setAdditionalParamValues(Object.fromEntries(
+        Object.entries(marker.additionalParameters).map(([k, v]) => [k, v.toString()])
+      ));
+      setSelectedAdditionalParams(Object.keys(marker.additionalParameters) as AdditionalParamKey[]);
+    } else {
+      setAdditionalParamValues({});
+      setSelectedAdditionalParams([]);
+    }
+
     setLakeId(marker.lakeId ?? null);
     setRiverId(marker.riverId ?? null);
     setRiverGeometry(null);
@@ -1134,32 +1112,6 @@ export function MyMap({
     setEssentialDraft(nextEssentialDraft);
     setEssentialParameters(marker.essentialParameters ?? {});
     setEssentialError(null);
-    
-    // Set additional params if they exist
-    const additionalParams: AdditionalParamKey[] = [];
-    if (marker.conductivity !== undefined) {
-      additionalParams.push("conductivity");
-      setConductivity(marker.conductivity.toString());
-    } else {
-      setConductivity("");
-    }
-    if (marker.aod !== undefined) {
-      additionalParams.push("aod");
-      setAod(marker.aod.toString());
-    } else {
-      setAod("");
-    }
-    if (marker.temperature !== undefined) {
-      additionalParams.push("temperature");
-    } else {
-      // no-op
-    }
-    if (marker.bod !== undefined) {
-      additionalParams.push("bod");
-    } else {
-      // no-op
-    }
-    setSelectedAdditionalParams(additionalParams);
     setDraftPage(0);
   };
 
@@ -1169,11 +1121,8 @@ export function MyMap({
     setLongitude("");
     setTurbidity("");
     setPh("");
-    setTemperature("");
-    setBod("");
+    setAdditionalParamValues({});
     setMarkerColor("red");
-    setConductivity("");
-    setAod("");
     setObservedAt("");
     setObsDate("");
     setObsHour("");
@@ -1353,6 +1302,7 @@ export function MyMap({
                 turbidity: 0,
                 ph:        0,
                 // avg_wqi available — surface it if your popup uses it
+                additionalParameters: {},
                 essentialParameters: {
                   wqi: typeof properties.avg_wqi === "number" ? properties.avg_wqi : Number(properties.avg_wqi || 0),
                 },
@@ -1455,7 +1405,7 @@ export function MyMap({
     { color: "#ef4444", label: "Extremely poor", range: "> 200" },
   ].map(({ color, label, range }) => (
     <div key={label} className="flex items-center gap-2">
-      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
       <span className="text-foreground font-medium w-16">{label}</span>
       <span className="text-muted-foreground">{range}</span>
     </div>
@@ -1476,7 +1426,7 @@ export function MyMap({
       )}
 
       {isFormOpen && (
-        <Card className="w-96 h-full flex-shrink-0 flex flex-col overflow-hidden relative">
+        <Card className="w-96 h-full shrink-0 flex flex-col overflow-hidden relative">
           <Button
             variant="ghost"
             size="sm"
@@ -1811,66 +1761,25 @@ export function MyMap({
               
               {selectedAdditionalParams.length > 0 && (
                 <div className="grid grid-cols-2 gap-4">
-                  {selectedAdditionalParams.includes("temperature") && (
-                    <div className="space-y-2">
-                      <label htmlFor="temperature" className="text-sm font-medium">
-                        Temperature (°C)
-                      </label>
-                      <Input
-                        id="temperature"
-                        type="number"
-                        step="any"
-                        placeholder="e.g., 25.5"
-                        value={temperature}
-                        onChange={(e) => setTemperature(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {selectedAdditionalParams.includes("bod") && (
-                    <div className="space-y-2">
-                      <label htmlFor="bod" className="text-sm font-medium">
-                        BOD (mg/L)
-                      </label>
-                      <Input
-                        id="bod"
-                        type="number"
-                        step="any"
-                        placeholder="e.g., 3.0"
-                        value={bod}
-                        onChange={(e) => setBod(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {selectedAdditionalParams.includes("conductivity") && (
-                    <div className="space-y-2">
-                      <label htmlFor="conductivity" className="text-sm font-medium">
-                        Conductivity (μS/cm)
-                      </label>
-                      <Input
-                        id="conductivity"
-                        type="number"
-                        step="any"
-                        placeholder="e.g., 500"
-                        value={conductivity}
-                        onChange={(e) => setConductivity(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {selectedAdditionalParams.includes("aod") && (
-                    <div className="space-y-2">
-                      <label htmlFor="aod" className="text-sm font-medium">
-                        AOD
-                      </label>
-                      <Input
-                        id="aod"
-                        type="number"
-                        step="any"
-                        placeholder="e.g., 0.5"
-                        value={aod}
-                        onChange={(e) => setAod(e.target.value)}
-                      />
-                    </div>
-                  )}
+                  {selectedAdditionalParams.map((paramKey) => {
+                    const param = ADDITIONAL_PARAMETERS.find((p) => p.key === paramKey);
+                    if (!param) return null;
+                    return (
+                      <div key={paramKey} className="space-y-2">
+                        <label htmlFor={paramKey} className="text-sm font-medium">
+                          {param.label}
+                        </label>
+                        <Input
+                          id={paramKey}
+                          type="number"
+                          step="any"
+                          placeholder={param.placeholder || "e.g., value"}
+                          value={additionalParamValues[paramKey] || ""}
+                          onChange={(e) => setAdditionalParamValues((prev) => ({ ...prev, [paramKey]: e.target.value }))}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2149,14 +2058,12 @@ export function MyMap({
                     <div className="grid grid-cols-2 gap-1 text-muted-foreground">
                       <span>Turbidity: {marker.turbidity} NTU</span>
                       <span>pH: {marker.ph}</span>
-                      {marker.temperature != null && <span>Temp: {marker.temperature}°C</span>}
-                      {marker.bod != null && <span>BOD: {marker.bod} mg/L</span>}
-                      {marker.conductivity !== undefined && (
-                        <span>Cond: {marker.conductivity} μS/cm</span>
-                      )}
-                      {marker.aod !== undefined && (
-                        <span>AOD: {marker.aod}</span>
-                      )}
+                      {Object.entries(marker.additionalParameters || {}).map(([paramKey, val]) => {
+                        const p = ADDITIONAL_PARAMETERS.find(ap => ap.key === paramKey);
+                        if (!p) return <span key={paramKey}>{paramKey}: {val}</span>;
+                        const shortLabel = p.label.split(" ")[0];
+                        return <span key={paramKey}>{shortLabel}: {val}</span>;
+                      })}
                     </div>
                   </div>
                 ))}
