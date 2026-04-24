@@ -116,25 +116,6 @@ export function MapPage() {
     [activeWaterType]
   );
 
-  const handleRecordRejectedSession = useCallback(
-    (sessionMarkers: Marker[]) => {
-      if (sessionMarkers.length === 0) return;
-      const newSession: Session = {
-        id: `${Date.now()}-rejected`,
-        createdAt: new Date(),
-        waterType: activeWaterType,
-        markers: sessionMarkers.map((m) => ({ ...m })),
-        status: "rejected",
-      };
-
-      setSessionsByType((prev) => ({
-        ...prev,
-        [activeWaterType]: [...prev[activeWaterType], newSession],
-      }));
-    },
-    [activeWaterType]
-  );
-
   const handleResubmitRejectedSession = useCallback((markers: Marker[]) => {    
     if (markers.length === 0) return;
 
@@ -165,7 +146,7 @@ export function MapPage() {
         {/* Map Container */}
         <div className="transition-all duration-300 ease-in-out overflow-hidden relative flex-1 flex">
           {/* Water Type Dropdown Selection (Top Right) */}
-          <div className={`absolute top-6 z-20 transition-all duration-300 ease-in-out ${isFormActive ? 'right-[420px]' : 'right-[140px]'}`}>
+          <div className={`absolute top-6 z-20 transition-all duration-300 ease-in-out ${isFormActive ? 'right-105' : 'right-35'}`}>
             <div className="flex flex-col gap-3">
               <div className="relative">
                 <button
@@ -239,8 +220,8 @@ export function MapPage() {
             submittedMarkers={submittedMarkers}
             onDraftMarkersChange={setDraftMarkers}
             onSubmitDraftMarkers={handleSubmitDraftMarkers}
-            onRejectDraftSession={handleRecordRejectedSession}
             onProcessingChange={() => {}}
+            onRejectedSessionResubmit={handleResubmitRejectedSession}
             mapRef={mapRef}
             waterType={activeWaterType}
             onFormActiveChange={setIsFormActive}

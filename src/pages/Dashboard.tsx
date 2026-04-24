@@ -27,6 +27,7 @@ function toStateSlug(stateName: string): string {
 
 // Loads the state's SVG map from /src/assets/states/<slug>.svg
 // Falls back to a "Not Available" placeholder if the file doesn't exist or fails to load
+// @ts-ignore
 function StateMapSVG({ stateName, color }: { stateName: string; color: string }) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   const slug = toStateSlug(stateName);
@@ -88,6 +89,7 @@ function StateMapSVG({ stateName, color }: { stateName: string; color: string })
 
 // Large detailed architectural SVG illustrations (outline/line-art style like AQI.in)
 // KEPT as fallback — no longer used in cards, but preserved for reference
+// @ts-ignore
 function StateLandmarkIllustration({ stateName, color }: { stateName: string; color: string }) {
   const name = stateName.toLowerCase();
   const c = color;
@@ -519,7 +521,7 @@ export function Dashboard() {
             <div className="flex-1">
               <div className="grid grid-cols-3 gap-4 mb-10">
                 {[
-                  { value: "22", label: "Parameters", color: "#00e5ff" },
+                  { value: "11", label: "Parameters", color: "#00e5ff" },
                   { value: "100+", label: "Monitoring Points", color: "#1e90ff" },
                   { value: "Live", label: "Real-Time Feed", color: "#00e676" },
                 ].map((stat) => (

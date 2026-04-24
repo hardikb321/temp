@@ -508,6 +508,7 @@ interface MyMapProps {
   onDraftMarkersChange: (markers: Marker[]) => void;
   onSubmitDraftMarkers: (markers: Marker[]) => void;
   onProcessingChange?: (locked: boolean) => void;
+  onRejectedSessionResubmit?: (markers: Marker[]) => void;
   mapRef?: React.RefObject<MapRef | null>;
   waterType?: WaterType;
   onFormActiveChange?: (isActive: boolean) => void;
@@ -522,6 +523,7 @@ export function MyMap({
   onDraftMarkersChange,
   onSubmitDraftMarkers,
   onProcessingChange,
+  onRejectedSessionResubmit,
   mapRef: externalMapRef,
   waterType,
   onFormActiveChange,

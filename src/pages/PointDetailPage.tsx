@@ -367,7 +367,14 @@ export function PointDetailPage() {
     fetch(`/api/${route}/marker-years?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
       .then((r) => r.ok ? r.json() : Promise.reject("Failed to fetch years"))
       .then((json) => {
-        const years: number[] = json?.data?.length ? json.data : [new Date().getFullYear()];
+        const years: number[] = json?.data?.length ? json.data : [];
+        if (years.length === 0) {
+          return Promise.resolve([]); // Do not hit API for current year if DB reports no years
+        }
+        
+        // Sort descending to get the most recent year first
+        years.sort((a, b) => b - a);
+
         return Promise.all(years.map((year) =>
           fetch(`/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId || "")}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`)
             .then((r) => r.ok ? r.json() : null).catch(() => null)
@@ -866,35 +873,42 @@ export function PointDetailPage() {
         </div>
 
         {/* Chart Tab */}
-        {activeTab === "chart" && (
-          <div className="rounded-3xl p-6" style={{
-            background: "linear-gradient(145deg, #0c1825, #0f2035)",
-            border: `1px solid rgba(255,255,255,0.07)`,
-            boxShadow: "0 24px 80px rgba(0,0,0,0.4)"
-          }}>
-            {/* Chart header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-white font-bold text-lg">Water Quality Trend</h3>
-                <p className="text-slate-500 text-xs mt-0.5">Monthly WQI averages for selected year</p>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background: `${wqiStatus.dotColor}15`, color: wqiStatus.textHex, border: `1px solid ${wqiStatus.dotColor}30` }}>
-                <span className="w-2 h-2 rounded-full" style={{ background: wqiStatus.dotColor }} />
-                {selectedYear ?? ""}
-              </div>
-            </div>
-            <PointChartsPanel
-              availableYears={allYearsData.map(y => y.year)}
-              year={selectedYear}
-              onYearChange={setSelectedYear}
-              lakeId={marker.lakeId ?? null}
-              riverId={marker.riverId ?? null}
-              waterType={waterType}
-              lat={marker.latitude}
-              lng={marker.longitude}
-            />
-          </div>
-        )}
+        {/* Chart Tab */}
+{activeTab === "chart" && (
+  <div className="rounded-3xl p-6" style={{
+    background: "linear-gradient(145deg, #0c1825, #0f2035)",
+    border: `1px solid rgba(255,255,255,0.07)`,
+    boxShadow: "0 24px 80px rgba(0,0,0,0.4)"
+  }}>
+    {/* Chart header */}
+    <div className="flex items-center justify-between mb-6">
+      ...
+    </div>
+
+    {/* ── ADD THIS BLOCK ── */}
+    <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl w-fit" style={{
+      background: "rgba(30,144,255,0.08)",
+      border: "1px solid rgba(30,144,255,0.2)"
+    }}>
+      <span className="text-blue-400 text-sm">ℹ️</span>
+      <span className="text-xs text-slate-400">
+        Parameter values are <span className="text-blue-400 font-semibold">normalized to a 0–1 scale</span> for overlay comparison with WQI.
+      </span>
+    </div>
+    {/* ────────────────── */}
+
+    <PointChartsPanel
+      availableYears={allYearsData.map(y => y.year)}
+      year={selectedYear}
+      onYearChange={setSelectedYear}
+      lakeId={marker.lakeId ?? null}
+      riverId={marker.riverId ?? null}
+      waterType={waterType}
+      lat={marker.latitude}
+      lng={marker.longitude}
+    />
+  </div>
+)}
 
         {/* History Tab */}
         {activeTab === "history" && (

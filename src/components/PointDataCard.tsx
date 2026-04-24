@@ -11,6 +11,8 @@ interface HistoryEntry {
   created_at: string;
   wqi: number | null;
   parameters: Record<string, number | null>;
+  basin?: string | null;
+  sub_basin?: string | null;
 }
 
 interface MonthlyWqi {
@@ -33,7 +35,6 @@ interface PointDataCardProps {
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Helper to determine WQI status — matches PointDetailPage
 function getWqiStatus(wqi: number | null | undefined): { label: string; dotColor: string } {
   if (wqi == null) return { label: "Unknown", dotColor: "#6b7280" };
   if (wqi <= 50) return { label: "Excellent", dotColor: "#3b82f6" };
@@ -68,7 +69,6 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
   const [loadingCcme, setLoadingCcme] = useState(false);
   const [ccmeError, setCcmeError] = useState<string | null>(null);
 
-  // Fetch point history when marker changes
   useEffect(() => {
     const objectId = marker?.lakeId || marker?.riverId;
     if (!objectId) { return; }
@@ -79,10 +79,10 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     const maxAge = 100;
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
-    
+
     let url = `/api/${route}/marker-history?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&limit=${maxAge}&offset=0`;
     if (wqiType === "ccme") {
-      url = ""; // TODO: Leave blank for now, add CCME history endpoint here later
+      url = "";
     }
 
     if (!url) {
@@ -91,7 +91,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       setLoading(false);
       return;
     }
-    
+
     fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -99,6 +99,12 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       })
       .then((json) => {
         const rows: HistoryEntry[] = json?.data?.results ?? [];
+        console.log("📦 Raw API response:", json);
+  console.log("📋 History rows:", rows);
+  console.log("🌊 First entry basin/sub_basin:", {
+    basin: rows[0]?.basin,
+    sub_basin: rows[0]?.sub_basin,
+  });
         setHistoryEntries(rows);
       })
       .catch((err: unknown) => {
@@ -108,7 +114,6 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       .finally(() => setLoading(false));
   }, [marker, waterType, wqiType]);
 
-  // Fetch chart data when marker changes
   useEffect(() => {
     const objectId = marker?.lakeId || marker?.riverId;
     if (!objectId) { return; }
@@ -116,7 +121,6 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     const route = waterType === "river" ? "rivers" : "lakes";
     const idKey = waterType === "river" ? "river_id" : "lake_id";
 
-    // Fetch CCME data
     if (wqiType === "ccme") {
       setLoadingCcme(true);
       setCcmeError(null);
@@ -141,54 +145,41 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       return;
     }
 
-    // First, fetch available years
     fetch(`/api/${route}/marker-years?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}`)
       .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch years");
         return r.json();
       })
       .then((json) => {
-        const years: number[] = json?.data?.length ? json.data : [new Date().getFullYear()];
-        // Sort descending so the most recent year is first
-        years.sort((a, b) => b - a);
-        const year = years[0];
-        setChartYear(year);
+        const years: number[] = json?.data?.length ? json.data : [];
+        if (years.length > 0) {
+          years.sort((a, b) => b - a);
+          const year = years[0];
+          setChartYear(year);
 
-        let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
-        
-        fetch(url)
-          .then((r) => r.json())
-          .then((jsonChart) => setWqiData(jsonChart?.data?.wqi ?? []))
-          .catch(() => setWqiData([]));
+          fetch(`/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`)
+            .then((r) => r.json())
+            .then((jsonChart) => setWqiData(jsonChart?.data?.wqi ?? []))
+            .catch(() => setWqiData([]));
+        }
       })
       .catch(() => {
-        const year = new Date().getFullYear();
-        setChartYear(year);
-        
-        let url = `/api/${route}/marker-chart?${idKey}=${encodeURIComponent(objectId)}&lat=${marker.latitude}&lng=${marker.longitude}&year=${year}`;
-        
-        fetch(url)
-          .then((r) => r.json())
-          .then((jsonChart) => setWqiData(jsonChart?.data?.wqi ?? []))
-          .catch(() => setWqiData([]));
+        setChartYear(null);
+        setWqiData([]);
       });
   }, [marker, waterType, wqiType]);
 
-  // Get the latest entry
   const latestEntry = historyEntries[0] ?? null;
 
-  // Get key parameters from latest entry
   const keyParameters = useMemo(() => {
     if (!latestEntry?.parameters) return [];
     const keys = Object.keys(latestEntry.parameters);
-    // Show first 4 parameters (pH, DO, BOD, Conductivity, etc.)
     return keys.slice(0, 4).map((key) => ({
       label: key,
       value: latestEntry.parameters[key],
     }));
   }, [latestEntry]);
 
-  // Prepare WQI chart data
   const wqiChartValues = useMemo(() => {
     const arr: (number | null)[] = new Array(12).fill(null);
     wqiData.forEach(({ month, avg_wqi }) => {
@@ -199,7 +190,6 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     return arr;
   }, [wqiData]);
 
-  // Build chart dataset
   const datasets = useMemo(
     () => [
       {
@@ -217,12 +207,10 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     [wqiChartValues, chartYear, wqiType]
   );
 
-  // Create/update chart
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // If switching back to chart tab, resize and redraw
     if (activeTab === "chart" && chartRef.current) {
       setTimeout(() => {
         chartRef.current?.resize();
@@ -230,7 +218,6 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       return;
     }
 
-    // Initialize chart
     if (chartRef.current) {
       chartRef.current.destroy();
       chartRef.current = null;
@@ -281,14 +268,12 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
     };
   }, [datasets, wqiChartValues, activeTab]);
 
-  // Handle backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
 
-  // Navigate to detail page
   const handleViewDetails = () => {
     console.log("Card clicked! Marker:", marker);
     if (marker && marker.id) {
@@ -296,27 +281,24 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
       const markerData = JSON.stringify(marker);
       console.log("Marker data to store:", markerData);
       sessionStorage.setItem(`point_${marker.id}`, markerData);
-      
-      // Verify it was stored
+
       const verify = sessionStorage.getItem(`point_${marker.id}`);
       console.log("Verification - data stored:", verify ? "YES" : "NO");
-      
+
       const route = `/point/${encodeURIComponent(marker.id)}`;
       console.log("Navigating to route:", route);
       navigate(route);
     } else {
-      console.error("Cannot navigate - marker or marker.id is missing", {marker});
+      console.error("Cannot navigate - marker or marker.id is missing", { marker });
     }
   };
 
   if (!marker) return null;
 
-  const latestWqi = wqiType === "ccme" 
+  const latestWqi = wqiType === "ccme"
     ? ccmeData?.ccme_wqi
     : (latestEntry?.wqi ?? marker.essentialParameters?.wqi);
   const statusInfo = wqiType === "ccme" ? getCcmeStatus(latestWqi) : getWqiStatus(latestWqi);
-
-  // Colored accent based on WQI status
   const accentColor = statusInfo.dotColor;
 
   return (
@@ -325,9 +307,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
         className="absolute inset-0 z-30"
         onClick={handleBackdropClick}
       />
-      <div
-        className="absolute top-4 left-4 z-40"
-      >
+      <div className="absolute top-4 left-4 z-40">
         <div
           className="w-75 max-h-[calc(100svh-18rem)] rounded-xl overflow-y-auto shadow-2xl border border-white/10 bg-card/95 backdrop-blur-md flex flex-col animate-scale-up hover:shadow-black/30 transition-shadow custom-scrollbar"
           style={{ boxShadow: `0 0 0 2px ${accentColor}22, 0 8px 32px rgba(0,0,0,0.35)` }}
@@ -384,23 +364,56 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
 
           {/* Coordinates + Location Info */}
           <div className="px-3 pb-2 space-y-1.5">
+            {/* Coordinates + ID */}
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
               <span className="truncate">
                 <span className="text-foreground/60">📍</span> {marker.latitude.toFixed(4)}, {marker.longitude.toFixed(4)}
               </span>
-              {marker.lakeId && (
+              {(marker.lakeId || marker.riverId) && (
                 <span className="shrink-0 px-1.5 py-0.5 rounded bg-muted/40 text-[9px] font-mono">
-                  ID: {marker.lakeId}
+                  ID: {marker.lakeId || marker.riverId}
                 </span>
               )}
             </div>
+
+            {/* City / State */}
             {(marker.city_name || marker.state_name) && (
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span className="text-foreground/60">📍</span>
                 <span>
-                  {marker.city_name && <span className="text-foreground font-medium">{marker.city_name}</span>}
-                  {marker.city_name && marker.state_name && <span className="mx-1">,</span>}
-                  {marker.state_name && <span className="text-foreground font-medium">{marker.state_name}</span>}
+                  {marker.city_name && (
+                    <span className="text-foreground font-medium">{marker.city_name}</span>
+                  )}
+                  {marker.city_name && marker.state_name && (
+                    <span className="mx-1">,</span>
+                  )}
+                  {marker.state_name && (
+                    <span className="text-foreground font-medium">{marker.state_name}</span>
+                  )}
+                </span>
+              </div>
+            )}
+            
+            {/* Basin / Sub-basin — rivers only */}
+            {waterType === "river" && (latestEntry?.basin || latestEntry?.sub_basin) && (
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span className="text-foreground/60">🌊</span>
+                <span>
+                  {latestEntry.basin && (
+                    <>
+                      <span className="text-muted-foreground">Basin: </span>
+                      <span className="text-foreground font-medium">{latestEntry.basin}</span>
+                    </>
+                  )}
+                  {latestEntry.basin && latestEntry.sub_basin && (
+                    <span className="mx-1">·</span>
+                  )}
+                  {latestEntry.sub_basin && (
+                    <>
+                      <span className="text-muted-foreground">Sub-basin: </span>
+                      <span className="text-foreground font-medium">{latestEntry.sub_basin}</span>
+                    </>
+                  )}
                 </span>
               </div>
             )}
@@ -432,19 +445,19 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
               {(["chart", "history"] as const)
                 .filter((tab) => wqiType !== "ccme" || tab !== "history")
                 .map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 text-[10px] font-semibold py-1 rounded-md transition-all ${
-                    activeTab === tab
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab === "chart" ? "Recent Trend" : "Point History"}
-                </button>
-              ))}
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 text-[10px] font-semibold py-1 rounded-md transition-all ${
+                      activeTab === tab
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {tab === "chart" ? "Recent Trend" : "Point History"}
+                  </button>
+                ))}
             </div>
 
             {wqiType === "ccme" ? (
@@ -483,7 +496,7 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="mt-1">
                       <div className="flex justify-between items-end mb-1 px-0.5">
                         <span className="text-[10px] font-medium text-muted-foreground">CCME Scale</span>
@@ -491,15 +504,13 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
                           {Number(ccmeData.ccme_wqi).toFixed(1)} / 100
                         </span>
                       </div>
-                      
+
                       {/* CCME Progress Bar */}
                       <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex relative">
-                        {/* Marker pointer */}
-                        <div 
-                          className="absolute top-0 bottom-0 w-1 bg-white border border-black z-10 rounded-sm" 
+                        <div
+                          className="absolute top-0 bottom-0 w-1 bg-white border border-black z-10 rounded-sm"
                           style={{ left: `calc(${Math.min(Math.max(ccmeData.ccme_wqi, 0), 100)}% - 2px)` }}
                         />
-                        {/* Segments */}
                         <div className="h-full w-[50%]" style={{ backgroundColor: "#ef4444" }} title="Poor (0-49)" />
                         <div className="h-full w-[15%]" style={{ backgroundColor: "#f97316" }} title="Marginal (50-64)" />
                         <div className="h-full w-[15%]" style={{ backgroundColor: "#eab308" }} title="Fair (65-79)" />
@@ -551,7 +562,10 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
                           <span className="text-[9px] text-muted-foreground">
                             {new Date(entry.created_at).toLocaleString()}
                           </span>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${accentColor}22`, color: accentColor }}>
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                            style={{ background: `${accentColor}22`, color: accentColor }}
+                          >
                             {entry.wqi != null ? Number(entry.wqi).toFixed(1) : "—"}
                           </span>
                         </div>
@@ -560,7 +574,9 @@ export function PointDataCard({ marker, waterType = "lake", onClose }: PointData
                             {Object.entries(entry.parameters).slice(0, 4).map(([k, v]) => (
                               <div key={k} className="truncate flex gap-1">
                                 <span className="text-muted-foreground">{k.substring(0, 8)}:</span>
-                                <span className="font-medium text-foreground">{v != null ? Number(v).toFixed(2) : "—"}</span>
+                                <span className="font-medium text-foreground">
+                                  {v != null ? Number(v).toFixed(2) : "—"}
+                                </span>
                               </div>
                             ))}
                           </div>
